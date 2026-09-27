@@ -22,15 +22,10 @@ const props = defineProps<{
 }>();
 
 const safeProfileUrl = computed(() => {
-  if (!props.steamProfile?.profileUrl) return "";
-  try {
-    const url = new URL(props.steamProfile.profileUrl);
-    return url.protocol === "https:" && url.hostname === "steamcommunity.com"
-      ? url.href
-      : "";
-  } catch {
-    return "";
-  }
+  const steamId = props.player.steamId;
+  return steamId && /^[1-9][0-9]{16}$/.test(steamId)
+    ? `https://steamcommunity.com/profiles/${steamId}/`
+    : "";
 });
 
 const safeAvatarUrl = computed(() => {
@@ -75,7 +70,17 @@ function displayNumber(value: number | null) {
         class="shrink-0"
       />
       <div class="min-w-0">
-        <div class="break-all text-sm font-semibold" :title="player.name">
+        <a
+          v-if="safeProfileUrl"
+          :href="safeProfileUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="break-all text-sm font-semibold text-[var(--el-color-primary)] hover:underline focus-visible:underline"
+          :title="`在新标签页打开 ${player.name || '玩家'} 的 Steam 主页`"
+        >
+          {{ player.name || "未命名玩家" }}
+        </a>
+        <div v-else class="break-all text-sm font-semibold" :title="player.name">
           {{ player.name || "未命名玩家" }}
         </div>
         <div
