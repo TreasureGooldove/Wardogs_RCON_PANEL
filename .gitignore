@@ -1,0 +1,57 @@
+# Local secrets and runtime data
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+# Upstream Vite mode files contain public build settings and are required to rebuild.
+!frontend/.env
+!frontend/.env.development
+!frontend/.env.production
+!frontend/.env.staging
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.sqlite3-shm
+*.sqlite3-wal
+*.log
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.pytest-*-temp/
+.playwright-cli/
+.coverage
+htmlcov/
+
+# Node and generated frontend assets
+node_modules/
+frontend/dist/
+frontend/.vite/
+coverage/
+
+# Local editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# Local screenshots may contain player names, IDs, or server details.
+/doc/
+/data/
+/deploy/panel.env
+
+# Local Spec Kit planning and agent workflow files.
+/.agents/
+/.specify/
+/specs/

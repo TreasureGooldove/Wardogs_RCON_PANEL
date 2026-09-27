@@ -1,0 +1,19 @@
+# Build only the backend application and the already compiled frontend.
+# This allowlist keeps Git metadata, local secrets, virtual environments,
+# node_modules, tests, and runtime data out of the Docker build context.
+**
+!backend/
+!backend/pyproject.toml
+!backend/app/
+!backend/app/**
+!frontend/
+!frontend/dist/
+!frontend/dist/**
+!deploy/
+!deploy/Dockerfile
+
+# Keep future local secrets and Python caches out of the image too.
+**/__pycache__/
+**/__pycache__/**
+**/*.py[cod]
+**/.env*
