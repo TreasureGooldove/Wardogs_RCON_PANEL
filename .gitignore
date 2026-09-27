@@ -55,3 +55,9 @@ Thumbs.db
 /.agents/
 /.specify/
 /specs/
+
+# Unused upstream showcase and standalone frontend container files.
+/frontend/README.md
+/frontend/README.en-US.md
+/frontend/Dockerfile
+/frontend/.dockerignore

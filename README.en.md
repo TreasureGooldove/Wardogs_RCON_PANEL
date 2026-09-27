@@ -20,6 +20,22 @@ A self-hosted management panel for a Wardogs dedicated server. The frontend uses
 
 Match history is derived from periodic snapshots. Brief connections or events between samples may be missed, and earlier history cannot be reconstructed.
 
+## 🖼️ Screenshots
+
+These screenshots were captured during development; the interface may change. Player names and Steam IDs in the online-player screenshot were blurred in the original image.
+
+**Online players in three factions**
+
+![Online players grouped into three factions](doc/PixPin_2026-09-27_21-54-30.jpg)
+
+**Server rules announcements**
+
+![Server rules announcement settings and status](doc/PixPin_2026-09-27_21-55-59.jpg)
+
+**Administration**
+
+![Broadcast, match controls, and map changes](doc/PixPin_2026-09-27_21-56-10.jpg)
+
 ## 🚀 Run locally
 
 You need Python 3.11+, Node.js, and pnpm 9. Run these commands in PowerShell from the directory where you want to clone the repository:
