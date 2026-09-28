@@ -8,6 +8,9 @@ from uuid import uuid4
 from app.storage.db import Database
 
 
+DEFAULT_NOTIFICATION_TEXT = "感谢您的暖服支持！您已获赠{x}天预留位。"
+
+
 class WarmupStore:
     def __init__(self, database: Database) -> None:
         self.db = database
@@ -22,6 +25,7 @@ class WarmupStore:
                     interval_mode TEXT NOT NULL CHECK(interval_mode IN ('daily','hours')),
                     interval_hours INTEGER NOT NULL,
                     notification_mode TEXT NOT NULL CHECK(notification_mode IN ('private','broadcast')),
+                    notification_text TEXT NOT NULL DEFAULT '感谢您的暖服支持！您已获赠{x}天预留位。',
                     updated_at TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS warmup_runs (
@@ -30,6 +34,7 @@ class WarmupStore:
                     gift_days INTEGER NOT NULL, awarded_count INTEGER NOT NULL DEFAULT 0,
                     skipped_count INTEGER NOT NULL DEFAULT 0,
                     notification_mode TEXT NOT NULL, notification_status TEXT NOT NULL DEFAULT 'pending',
+                    notification_text TEXT NOT NULL DEFAULT '感谢您的暖服支持！您已获赠{x}天预留位。',
                     detail TEXT NOT NULL DEFAULT ''
                 );
                 CREATE INDEX IF NOT EXISTS idx_warmup_runs_origin
@@ -42,6 +47,11 @@ class WarmupStore:
                     PRIMARY KEY(run_id, steam_id)
                 );
             """)
+            for table in ("warmup_config", "warmup_runs"):
+                columns = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
+                if "notification_text" not in columns:
+                    db.execute(f"ALTER TABLE {table} ADD COLUMN notification_text TEXT NOT NULL "
+                               "DEFAULT '感谢您的暖服支持！您已获赠{x}天预留位。'")
             db.execute("""INSERT OR IGNORE INTO warmup_config
                 (id,origin,enabled,player_threshold,gift_days,interval_mode,
                  interval_hours,notification_mode,updated_at)
@@ -60,12 +70,14 @@ class WarmupStore:
 
     def save(self, origin: str, *, enabled: bool, player_threshold: int,
              gift_days: int, interval_mode: str, interval_hours: int,
-             notification_mode: str) -> dict:
+             notification_mode: str, notification_text: str = DEFAULT_NOTIFICATION_TEXT) -> dict:
         with self.db._connect() as db:
             db.execute("""UPDATE warmup_config SET origin=?,enabled=?,player_threshold=?,
-                gift_days=?,interval_mode=?,interval_hours=?,notification_mode=?,updated_at=?
+                gift_days=?,interval_mode=?,interval_hours=?,notification_mode=?,
+                notification_text=?,updated_at=?
                 WHERE id=1""", (origin, int(enabled), player_threshold, gift_days,
-                interval_mode, interval_hours, notification_mode, datetime.now(UTC).isoformat()))
+                interval_mode, interval_hours, notification_mode, notification_text,
+                datetime.now(UTC).isoformat()))
         return self.config()
 
     def latest(self, origin: str) -> dict | None:
@@ -81,16 +93,17 @@ class WarmupStore:
         return row is not None
 
     def begin(self, origin: str, player_count: int, gift_days: int,
-              notification_mode: str, targets: list[dict], skipped_count: int) -> str:
+              notification_mode: str, notification_text: str,
+              targets: list[dict], skipped_count: int) -> str:
         run_id = str(uuid4())
         now = datetime.now(UTC).isoformat()
         with self.db._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute("""INSERT INTO warmup_runs
                 (id,origin,started_at,outcome,player_count,gift_days,skipped_count,
-                 notification_mode) VALUES (?,?,?,'attempting',?,?,?,?)""",
+                 notification_mode,notification_text) VALUES (?,?,?,'attempting',?,?,?,?,?)""",
                 (run_id, origin, now, player_count, gift_days, skipped_count,
-                 notification_mode))
+                 notification_mode, notification_text))
             db.executemany("""INSERT INTO warmup_targets
                 (run_id,steam_id,player_name,action,expires_at) VALUES (?,?,?,?,?)""",
                 [(run_id, item["steam_id"], item["name"], item["action"],

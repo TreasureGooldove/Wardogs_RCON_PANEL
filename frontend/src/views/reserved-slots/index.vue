@@ -45,8 +45,12 @@ const warmupForm = reactive({
   giftDays: 1,
   intervalMode: "daily" as "daily" | "hours",
   intervalHours: 24,
-  notificationMode: "private" as "private" | "broadcast"
+  notificationMode: "private" as "private" | "broadcast",
+  notificationText: "感谢您的暖服支持！您已获赠{x}天预留位。"
 });
+const notificationPreview = computed(() =>
+  warmupForm.notificationText.replaceAll("{x}", String(warmupForm.giftDays))
+);
 const warmupProgress = computed(() => {
   const count = warmup.value?.observedPlayers;
   const target = warmup.value?.playerThreshold;
@@ -98,7 +102,8 @@ async function refreshWarmup() {
       giftDays: state.giftDays,
       intervalMode: state.intervalMode,
       intervalHours: state.intervalHours,
-      notificationMode: state.notificationMode
+      notificationMode: state.notificationMode,
+      notificationText: state.notificationText
     });
   } catch (cause) {
     warmupError.value = getApiErrorMessage(cause);
@@ -156,6 +161,11 @@ async function saveWarmupSettings() {
   if (!Number.isInteger(warmupForm.playerThreshold) || !Number.isInteger(warmupForm.giftDays) ||
       !Number.isInteger(warmupForm.intervalHours)) {
     ElMessage.warning("人数、天数和间隔必须是整数");
+    return;
+  }
+  if (!warmupForm.notificationText.trim() || notificationPreview.value.length > 200 ||
+      /[\x00-\x1f\x7f]/.test(warmupForm.notificationText)) {
+    ElMessage.warning("通知内容不能为空、包含换行或超过 200 字");
     return;
   }
   let password: string | null = null;
@@ -357,6 +367,11 @@ onBeforeUnmount(stopWarmupPolling);
             <el-option label="逐个私聊" value="private" />
             <el-option label="全服公告" value="broadcast" />
           </el-select>
+        </div>
+        <div class="space-y-2">
+          <label class="block text-sm">赠送通知文本</label>
+          <el-input v-model="warmupForm.notificationText" maxlength="200" show-word-limit placeholder="输入通知内容，{x} 表示赠送天数" />
+          <p class="text-sm text-gray-500">预览：{{ notificationPreview }}。{x} 会替换为赠送天数。全服公告也会被未获赠预留位的玩家看到。</p>
         </div>
         <p class="text-sm text-gray-500">
           <span v-if="warmupProgress">当前在线人数：{{ warmupProgress }}；</span>

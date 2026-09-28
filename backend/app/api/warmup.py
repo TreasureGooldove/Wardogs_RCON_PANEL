@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool, StrictInt, model_validator
 
 from app.api.auth import require_owner
 from app.errors import PanelError
+from app.warmup.store import DEFAULT_NOTIFICATION_TEXT
 
 
 router = APIRouter(prefix="/api/warmup", dependencies=[Depends(require_owner)])
@@ -24,7 +25,18 @@ class WarmupConfigBody(BaseModel):
     intervalMode: Literal["daily", "hours"]
     intervalHours: StrictInt = Field(ge=1, le=720)
     notificationMode: Literal["private", "broadcast"]
+    notificationText: str = Field(default=DEFAULT_NOTIFICATION_TEXT, min_length=1, max_length=200)
     password: SecretStr | None = None
+
+    @model_validator(mode="after")
+    def valid_notification_text(self):
+        self.notificationText = self.notificationText.strip()
+        rendered = self.notificationText.replace("{x}", str(self.giftDays))
+        if not self.notificationText or len(rendered) > 200 or any(
+            ord(char) < 32 or ord(char) == 127 for char in rendered
+        ):
+            raise ValueError("通知内容不能为空、包含换行或超过 200 字")
+        return self
 
 
 class AcknowledgeBody(BaseModel):
@@ -46,6 +58,7 @@ def _public(request: Request) -> dict:
         "intervalMode": config["interval_mode"],
         "intervalHours": config["interval_hours"],
         "notificationMode": config["notification_mode"],
+        "notificationText": config["notification_text"],
         "updatedAt": config["updated_at"],
         "targetRevision": runtime.target_revision,
         "collectorEnabled": request.app.state.settings.history_enabled,
@@ -102,6 +115,7 @@ async def save_warmup(payload: WarmupConfigBody, request: Request,
             interval_mode=payload.intervalMode,
             interval_hours=payload.intervalHours,
             notification_mode=payload.notificationMode,
+            notification_text=payload.notificationText,
         )
         return _public(request)
 

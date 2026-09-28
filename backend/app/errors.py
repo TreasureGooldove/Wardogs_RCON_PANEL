@@ -92,7 +92,7 @@ def install_error_handlers(app: FastAPI) -> None:
             code = "invalid_moderation_target"
         elif request.url.path == "/api/steam/profiles":
             code = "invalid_steam_ids"
-        elif request.url.path.startswith("/api/rules"):
+        elif request.url.path.startswith("/api/rules") or request.url.path.startswith("/api/warmup"):
             code = "invalid_selection"
         elif request.url.path == "/api/server/warnings":
             code = "invalid_moderation_reason" if request.method == "POST" else "invalid_moderation_target"

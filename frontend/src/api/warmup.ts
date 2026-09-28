@@ -30,6 +30,7 @@ export interface WarmupState {
   intervalMode: "daily" | "hours";
   intervalHours: number;
   notificationMode: "private" | "broadcast";
+  notificationText: string;
   targetRevision: string;
   collectorEnabled: boolean;
   configured: boolean;
@@ -55,6 +56,7 @@ export type WarmupUpdate = Pick<
   | "intervalMode"
   | "intervalHours"
   | "notificationMode"
+  | "notificationText"
   | "targetRevision"
 > & { password?: string };
 

@@ -83,9 +83,7 @@ class WarmupEngine:
                 self.store.notification(run["id"], "rejected:" + exc.code)
                 return
             self.store.notification(run["id"], "attempting")
-            message = (f"暖服奖励：在线达到{run['player_count']}人，本轮已为"
-                       f"{run['awarded_count']}位玩家配置{run['gift_days']}天预留位。"
-                       "已有更长有效期保持不变；配置可能需重启生效。")
+            message = run["notification_text"].replace("{x}", str(run["gift_days"]))
             try:
                 await ActionService(self.runtime.client).send(WriteName.BROADCAST, message=message)
             except PanelError as exc:
@@ -113,8 +111,7 @@ class WarmupEngine:
                 self.store.notification(run["id"], "rejected:" + exc.code, steam_id)
                 continue
             self.store.notification(run["id"], "attempting", steam_id)
-            message = (f"暖服奖励：服务器在线达到{run['player_count']}人，已为你配置"
-                       f"{run['gift_days']}天预留位。已有更长有效期保持不变；配置可能需重启生效。")
+            message = run["notification_text"].replace("{x}", str(run["gift_days"]))
             try:
                 await ActionService(self.runtime.client).send(
                     WriteName.MESSAGE, steam_id=steam_id, message=message)
@@ -174,7 +171,8 @@ class WarmupEngine:
                 await self.runtime.capabilities.require_advertised(write_spec.method, write_spec.path)
                 updated = replace_reserved_ids(document["text"], [*configured, *new_ids])
             run_id = self.store.begin(origin, self._count, config["gift_days"],
-                                      config["notification_mode"], targets, skipped)
+                                      config["notification_mode"],
+                                      config["notification_text"], targets, skipped)
             if not targets:
                 self.store.finish_grant(run_id, origin, [], outcome="no_eligible")
                 return
