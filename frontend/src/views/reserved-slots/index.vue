@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   addReservedSlot,
@@ -10,12 +10,32 @@ import {
 } from "@/api/configDoc";
 import { getApiErrorMessage } from "@/api/errors";
 import { useUserStoreHook } from "@/store/modules/user";
+import {
+  acknowledgeWarmup,
+  getWarmup,
+  saveWarmup,
+  type WarmupState,
+  type WarmupUpdate
+} from "@/api/warmup";
 
 defineOptions({ name: "ReservedSlots" });
 
 const snapshot = ref<ReservedSlots | null>(null);
 const userStore = useUserStoreHook();
 const canManage = computed(() => userStore.role === "owner" || userStore.permissions.includes("reserved"));
+const isOwner = computed(() => userStore.role === "owner");
+const warmup = ref<WarmupState | null>(null);
+const warmupLoading = ref(false);
+const warmupSaving = ref(false);
+const warmupError = ref("");
+const warmupForm = reactive({
+  enabled: false,
+  playerThreshold: 20,
+  giftDays: 1,
+  intervalMode: "daily" as "daily" | "hours",
+  intervalHours: 24,
+  notificationMode: "private" as "private" | "broadcast"
+});
 const search = ref("");
 const newSteamId = ref("");
 const reason = ref("");
@@ -44,6 +64,100 @@ async function refresh() {
     error.value = getApiErrorMessage(reason);
   } finally {
     loading.value = false;
+  }
+}
+
+async function refreshWarmup() {
+  if (!isOwner.value || warmupLoading.value) return;
+  warmupLoading.value = true;
+  warmupError.value = "";
+  try {
+    const state = await getWarmup();
+    warmup.value = state;
+    Object.assign(warmupForm, {
+      enabled: state.enabled,
+      playerThreshold: state.playerThreshold,
+      giftDays: state.giftDays,
+      intervalMode: state.intervalMode,
+      intervalHours: state.intervalHours,
+      notificationMode: state.notificationMode
+    });
+  } catch (cause) {
+    warmupError.value = getApiErrorMessage(cause);
+  } finally {
+    warmupLoading.value = false;
+  }
+}
+
+async function promptPassword(title: string, message: string): Promise<string | null> {
+  try {
+    const result = await ElMessageBox.prompt(message, title, {
+      type: "warning",
+      inputType: "password",
+      inputPlaceholder: "输入当前管理员密码",
+      inputValidator: value => Boolean(value) || "请输入当前管理员密码",
+      confirmButtonText: "确认",
+      cancelButtonText: "取消"
+    });
+    return result.value;
+  } catch {
+    return null;
+  }
+}
+
+async function saveWarmupSettings() {
+  const current = warmup.value;
+  if (!isOwner.value || !current || warmupSaving.value) return;
+  if (!Number.isInteger(warmupForm.playerThreshold) || !Number.isInteger(warmupForm.giftDays) ||
+      !Number.isInteger(warmupForm.intervalHours)) {
+    ElMessage.warning("人数、天数和间隔必须是整数");
+    return;
+  }
+  let password: string | null = null;
+  if (warmupForm.enabled) {
+    password = await promptPassword(
+      "启用暖服自动赠送",
+      "达到人数门槛时，面板会自动写入真实服务器预留位配置。若当前已达到门槛，保存后可能立即触发。确认前请备份服务器配置。"
+    );
+    if (!password) return;
+  }
+  warmupSaving.value = true;
+  warmupError.value = "";
+  try {
+    const payload: WarmupUpdate = {
+      ...warmupForm,
+      targetRevision: current.targetRevision,
+      ...(password ? { password } : {})
+    };
+    warmup.value = await saveWarmup(payload);
+    ElMessage.success(warmupForm.enabled ? "暖服赠送规则已启用" : "暖服赠送规则已保存（关闭）");
+  } catch (cause) {
+    warmupError.value = getApiErrorMessage(cause);
+  } finally {
+    warmupSaving.value = false;
+  }
+}
+
+async function acknowledgeRun(runId: string) {
+  const current = warmup.value;
+  if (!current || warmupSaving.value) return;
+  const password = await promptPassword(
+    "确认人工核查",
+    "请先比对服务器配置与面板预留列表。本操作不会补发本轮奖励，只解除后续检测的暂停。"
+  );
+  if (!password) return;
+  warmupSaving.value = true;
+  warmupError.value = "";
+  try {
+    warmup.value = await acknowledgeWarmup(runId, {
+      targetRevision: current.targetRevision,
+      password
+    });
+    ElMessage.success("已记录人工核查，可在下一次检测时间继续运行");
+  } catch (cause) {
+    warmupError.value = getApiErrorMessage(cause);
+  } finally {
+    warmupSaving.value = false;
   }
 }
 
@@ -133,7 +247,10 @@ async function saveMetadata() {
   }
 }
 
-onMounted(refresh);
+onMounted(() => {
+  void refresh();
+  void refreshWarmup();
+});
 </script>
 
 <template>
@@ -147,6 +264,87 @@ onMounted(refresh);
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
+    <el-card v-if="isOwner" shadow="never" v-loading="warmupLoading">
+      <template #header>
+        <div class="flex items-center justify-between gap-3">
+          <span>暖服预留位自动赠送</span>
+          <el-button size="small" @click="refreshWarmup">刷新状态</el-button>
+        </div>
+      </template>
+      <div class="space-y-4">
+        <el-alert v-if="warmupError" :title="warmupError" type="error" :closable="false" />
+        <el-alert
+          v-if="warmup?.attentionRequired"
+          title="上次配置写入结果不确定，自动赠送已暂停。请先人工核对，再在下方确认核查。"
+          type="error"
+          :closable="false"
+        />
+        <el-alert
+          v-if="warmup && !warmup.collectorEnabled"
+          title="历史采样未启用，暖服人数检测不可用。"
+          type="warning"
+          :closable="false"
+        />
+        <p class="text-sm text-gray-500">
+          达到人数门槛时，为该次采样中所有在线玩家赠送预留位。已有更长的限时预留位不会缩短；永久或非面板管理的预留位保持原样。预留位可能需服务器重启后实时生效。
+        </p>
+        <div class="flex flex-wrap items-center gap-4">
+          <span>启用</span><el-switch v-model="warmupForm.enabled" :disabled="!warmup?.collectorEnabled" />
+          <span>人数门槛</span><el-input-number v-model="warmupForm.playerThreshold" :min="1" :max="100" />
+          <span>赠送天数</span><el-input-number v-model="warmupForm.giftDays" :min="1" :max="3650" />
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <span>下一轮检测</span>
+          <el-select v-model="warmupForm.intervalMode" class="w-48">
+            <el-option label="北京时间每天一次" value="daily" />
+            <el-option label="按小时间隔" value="hours" />
+          </el-select>
+          <template v-if="warmupForm.intervalMode === 'hours'">
+            <el-input-number v-model="warmupForm.intervalHours" :min="1" :max="720" />
+            <span>小时后</span>
+          </template>
+          <span>赠送通知</span>
+          <el-select v-model="warmupForm.notificationMode" class="w-44">
+            <el-option label="逐个私聊" value="private" />
+            <el-option label="全服公告" value="broadcast" />
+          </el-select>
+        </div>
+        <p class="text-sm text-gray-500">
+          最近采样人数：{{ warmup?.observedPlayers ?? "尚无新鲜数据" }}；下次可检测：{{ warmup?.nextDetectionAt ? new Date(warmup.nextDetectionAt).toLocaleString() : "现在" }}。
+          自动赠送默认关闭，保存为启用时需再次输入管理员密码。
+        </p>
+        <el-button type="primary" :loading="warmupSaving" :disabled="!warmup?.configured" @click="saveWarmupSettings">保存暖服规则</el-button>
+        <el-divider>最近赠送记录</el-divider>
+        <el-empty v-if="!warmup?.runs.length" description="尚无暖服赠送记录" />
+        <el-table v-else :data="warmup.runs" border>
+          <el-table-column type="expand">
+            <template #default="scope">
+              <el-table :data="scope.row.targets" size="small">
+                <el-table-column prop="player_name" label="玩家" min-width="150" />
+                <el-table-column prop="steam_id" label="SteamID" min-width="185" />
+                <el-table-column prop="action" label="处理" width="100" />
+                <el-table-column prop="expires_at" label="到期时间" min-width="180" />
+                <el-table-column prop="notification_status" label="通知状态" min-width="130" />
+              </el-table>
+            </template>
+          </el-table-column>
+          <el-table-column prop="started_at" label="检测时间" min-width="190" />
+          <el-table-column prop="player_count" label="在线人数" width="105" />
+          <el-table-column prop="awarded_count" label="赠送人数" width="105" />
+          <el-table-column prop="skipped_count" label="跳过人数" width="105" />
+          <el-table-column prop="outcome" label="结果" min-width="120" />
+          <el-table-column label="通知" min-width="135">
+            <template #default="scope">{{ scope.row.notification_mode === 'broadcast' ? scope.row.notification_status : '逐个私聊（展开查看）' }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="135">
+            <template #default="scope">
+              <el-button v-if="scope.row.outcome === 'attention'" type="warning" size="small" @click="acknowledgeRun(scope.row.id)">确认已核查</el-button>
+              <span v-else>{{ scope.row.detail || "—" }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-card>
     <el-card shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">

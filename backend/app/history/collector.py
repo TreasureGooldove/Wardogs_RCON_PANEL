@@ -10,6 +10,7 @@ from app.rcon.routes import RouteName
 from app.rcon.runtime import RconRuntime
 from app.rcon.status import normalize_status
 from app.rules.engine import RulesEngine
+from app.warmup.engine import WarmupEngine
 
 from .store import HistoryStore
 
@@ -19,11 +20,13 @@ _LOG = logging.getLogger(__name__)
 
 class HistoryCollector:
     def __init__(self, runtime: RconRuntime, store: HistoryStore,
-                 rules: RulesEngine | None = None, interval: float = 5.0) -> None:
+                 rules: RulesEngine | None = None,
+                 warmup: WarmupEngine | None = None, interval: float = 5.0) -> None:
         self.runtime = runtime
         self.store = store
         self.interval = interval
         self.rules = rules
+        self.warmup = warmup
         self.last_error: str | None = None
 
     async def sample(self) -> bool:
@@ -47,6 +50,8 @@ class HistoryCollector:
             await asyncio.to_thread(self.store.record, origin, after, players)
             if self.rules is not None:
                 self.rules.observe(origin, players["players"])
+            if self.warmup is not None:
+                self.warmup.observe(origin, players["players"])
         return True
 
     async def run(self) -> None:

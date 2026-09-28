@@ -29,6 +29,7 @@ from app.api.settings import router as settings_router
 from app.api.steam import router as steam_router
 from app.api.status import router as status_router
 from app.api.subusers import router as subusers_router
+from app.api.warmup import router as warmup_router
 from app.auth.sessions import AuthService
 from app.config import PanelSettings, load_settings
 from app.errors import install_error_handlers
@@ -40,6 +41,8 @@ from app.rules.engine import RulesEngine
 from app.rules.store import RulesStore
 from app.storage.db import Database
 from app.steam.service import SteamProfileService
+from app.warmup.engine import WarmupEngine
+from app.warmup.store import WarmupStore
 
 
 class FrontendFiles(StaticFiles):
@@ -71,11 +74,15 @@ def create_app(
     history_store.initialize()
     rules_store = RulesStore(database)
     rules_store.initialize()
+    warmup_store = WarmupStore(database)
+    warmup_store.initialize()
     auth_service = AuthService(database, settings)
     rcon_runtime = RconRuntime(settings, database, transport=rcon_transport)
     steam_service = SteamProfileService.from_environment()
     rules_engine = RulesEngine(rcon_runtime, rules_store)
-    history_collector = HistoryCollector(rcon_runtime, history_store, rules_engine)
+    warmup_engine = WarmupEngine(rcon_runtime, database, warmup_store)
+    history_collector = HistoryCollector(rcon_runtime, history_store, rules_engine,
+                                         warmup=warmup_engine)
     reservation_expirer = ReservationExpirer(rcon_runtime, database)
 
     @asynccontextmanager
@@ -84,14 +91,20 @@ def create_app(
             asyncio.create_task(history_collector.run()) if settings.history_enabled else None
         )
         rules_task = asyncio.create_task(rules_engine.run())
+        warmup_task = asyncio.create_task(warmup_engine.run())
         reservation_task = asyncio.create_task(reservation_expirer.run())
         try:
             yield
         finally:
             rules_task.cancel()
+            warmup_task.cancel()
             reservation_task.cancel()
             try:
                 await rules_task
+            except asyncio.CancelledError:
+                pass
+            try:
+                await warmup_task
             except asyncio.CancelledError:
                 pass
             try:
@@ -118,6 +131,8 @@ def create_app(
     app.state.history_collector = history_collector
     app.state.rules_store = rules_store
     app.state.rules_engine = rules_engine
+    app.state.warmup_store = warmup_store
+    app.state.warmup_engine = warmup_engine
     app.state.reservation_expirer = reservation_expirer
     app.state.capability_service = RuntimeCapabilityService(rcon_runtime)
     app.state.read_service = RuntimeReadService(rcon_runtime)
@@ -138,6 +153,7 @@ def create_app(
         diagnostics_router,
         history_router,
         rules_router,
+        warmup_router,
         steam_router,
     ):
         app.include_router(router)
