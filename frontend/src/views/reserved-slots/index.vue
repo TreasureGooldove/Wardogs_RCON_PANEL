@@ -36,6 +36,13 @@ const warmupForm = reactive({
   intervalHours: 24,
   notificationMode: "private" as "private" | "broadcast"
 });
+const warmupProgress = computed(() => {
+  const count = warmup.value?.observedPlayers;
+  const target = warmup.value?.playerThreshold;
+  return count !== null && count !== undefined && target !== undefined && count < target
+    ? `${count} / ${target}`
+    : null;
+});
 const search = ref("");
 const newSteamId = ref("");
 const reason = ref("");
@@ -310,7 +317,8 @@ onMounted(() => {
           </el-select>
         </div>
         <p class="text-sm text-gray-500">
-          最近采样人数：{{ warmup?.observedPlayers ?? "尚无新鲜数据" }}；下次可检测：{{ warmup?.nextDetectionAt ? new Date(warmup.nextDetectionAt).toLocaleString() : "现在" }}。
+          <span v-if="warmupProgress">当前在线人数：{{ warmupProgress }}；</span>
+          下次可检测：{{ warmup?.nextDetectionAt ? new Date(warmup.nextDetectionAt).toLocaleString() : "现在" }}。
           自动赠送默认关闭，保存为启用时需再次输入管理员密码。
         </p>
         <el-button type="primary" :loading="warmupSaving" :disabled="!warmup?.configured" @click="saveWarmupSettings">保存暖服规则</el-button>
