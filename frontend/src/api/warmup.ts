@@ -39,6 +39,14 @@ export interface WarmupState {
   runs: WarmupRun[];
 }
 
+export interface WarmupStatus {
+  observedPlayers: number | null;
+  playerThreshold: number;
+  nextDetectionAt: string | null;
+  attentionRequired: boolean;
+  lastRunId: string | null;
+}
+
 export type WarmupUpdate = Pick<
   WarmupState,
   | "enabled"
@@ -51,6 +59,9 @@ export type WarmupUpdate = Pick<
 > & { password?: string };
 
 export const getWarmup = () => http.request<WarmupState>("get", "/api/warmup");
+
+export const getWarmupStatus = () =>
+  http.request<WarmupStatus>("get", "/api/warmup/status");
 
 export const saveWarmup = (data: WarmupUpdate) =>
   http.request<WarmupState>("put", "/api/warmup", { data });

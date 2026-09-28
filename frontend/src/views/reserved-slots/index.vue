@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import {
+  computed,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  onMounted,
+  reactive,
+  ref
+} from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   addReservedSlot,
@@ -13,6 +21,7 @@ import { useUserStoreHook } from "@/store/modules/user";
 import {
   acknowledgeWarmup,
   getWarmup,
+  getWarmupStatus,
   saveWarmup,
   type WarmupState,
   type WarmupUpdate
@@ -28,6 +37,8 @@ const warmup = ref<WarmupState | null>(null);
 const warmupLoading = ref(false);
 const warmupSaving = ref(false);
 const warmupError = ref("");
+let warmupPollTimer: ReturnType<typeof setInterval> | null = null;
+let warmupPolling = false;
 const warmupForm = reactive({
   enabled: false,
   playerThreshold: 20,
@@ -94,6 +105,33 @@ async function refreshWarmup() {
   } finally {
     warmupLoading.value = false;
   }
+}
+
+async function pollWarmupStatus() {
+  if (!isOwner.value || !warmup.value || warmupPolling || document.hidden) return;
+  warmupPolling = true;
+  try {
+    const status = await getWarmupStatus();
+    if (status.lastRunId !== (warmup.value.runs[0]?.id ?? null)) {
+      warmup.value = await getWarmup();
+    } else {
+      Object.assign(warmup.value, status);
+    }
+  } catch {
+    // Leave the previous sampled count visible until the next successful poll.
+  } finally {
+    warmupPolling = false;
+  }
+}
+
+function startWarmupPolling() {
+  if (warmupPollTimer || !isOwner.value) return;
+  warmupPollTimer = setInterval(() => void pollWarmupStatus(), 5000);
+}
+
+function stopWarmupPolling() {
+  if (warmupPollTimer) clearInterval(warmupPollTimer);
+  warmupPollTimer = null;
 }
 
 async function promptPassword(title: string, message: string): Promise<string | null> {
@@ -257,7 +295,11 @@ async function saveMetadata() {
 onMounted(() => {
   void refresh();
   void refreshWarmup();
+  startWarmupPolling();
 });
+onActivated(startWarmupPolling);
+onDeactivated(stopWarmupPolling);
+onBeforeUnmount(stopWarmupPolling);
 </script>
 
 <template>

@@ -157,6 +157,11 @@ def test_owner_config_requires_reauthentication_and_subuser_cannot_change(tmp_pa
                           headers={"Origin": PANEL}).status_code == 401
         assert client.put("/api/warmup", json={**body, "password": "test-owner-password"},
                           headers={"Origin": PANEL}).status_code == 200
+        app.state.warmup_engine.observe(ORIGIN, players(A, B, C))
+        status = client.get("/api/warmup/status")
+        assert status.status_code == 200
+        assert status.json()["observedPlayers"] == 3
+        assert status.json()["playerThreshold"] == 20
         assert client.post("/api/subusers", json={
             "username": "viewer", "password": "test-viewer-password",
         }, headers={"Origin": PANEL}).status_code == 201
@@ -165,6 +170,7 @@ def test_owner_config_requires_reauthentication_and_subuser_cannot_change(tmp_pa
                 "username": "viewer", "password": "test-viewer-password",
             }, headers={"Origin": PANEL}).status_code == 200
             assert viewer.get("/api/warmup").status_code == 403
+            assert viewer.get("/api/warmup/status").status_code == 403
             assert viewer.put("/api/warmup", json=body,
                               headers={"Origin": PANEL}).status_code == 403
     assert state["writes"] == []

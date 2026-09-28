@@ -62,6 +62,24 @@ async def get_warmup(request: Request, response: Response) -> dict:
         return _public(request)
 
 
+@router.get("/status")
+async def get_warmup_status(request: Request, response: Response) -> dict:
+    """Lightweight status for the visible settings page; never contacts RCON."""
+    response.headers["Cache-Control"] = "no-store"
+    runtime = request.app.state.rcon_runtime
+    async with runtime.lock:
+        origin = runtime.target.origin if runtime.target else ""
+        config = request.app.state.warmup_store.config()
+        status = request.app.state.warmup_engine.status(origin)
+        return {
+            "observedPlayers": status["observedPlayers"],
+            "playerThreshold": config["player_threshold"],
+            "nextDetectionAt": status["nextDetectionAt"],
+            "attentionRequired": status["attentionRequired"],
+            "lastRunId": status["lastRun"]["id"] if status["lastRun"] else None,
+        }
+
+
 @router.put("")
 async def save_warmup(payload: WarmupConfigBody, request: Request,
                       response: Response) -> dict:
