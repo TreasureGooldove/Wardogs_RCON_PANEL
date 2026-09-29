@@ -26,6 +26,8 @@ export interface WarmupRun {
 export interface WarmupState {
   enabled: boolean;
   playerThreshold: number;
+  resetThreshold: number;
+  resetMinutes: number;
   giftDays: number;
   intervalMode: "daily" | "hours";
   intervalHours: number;
@@ -37,6 +39,7 @@ export interface WarmupState {
   observedPlayers: number | null;
   nextDetectionAt: string | null;
   attentionRequired: boolean;
+  cyclePhase: "waiting_low" | "armed";
   runs: WarmupRun[];
 }
 
@@ -45,6 +48,7 @@ export interface WarmupStatus {
   playerThreshold: number;
   nextDetectionAt: string | null;
   attentionRequired: boolean;
+  cyclePhase: "waiting_low" | "armed";
   lastRunId: string | null;
 }
 
@@ -52,8 +56,9 @@ export type WarmupUpdate = Pick<
   WarmupState,
   | "enabled"
   | "playerThreshold"
+  | "resetThreshold"
+  | "resetMinutes"
   | "giftDays"
-  | "intervalMode"
   | "intervalHours"
   | "notificationMode"
   | "notificationText"

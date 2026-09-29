@@ -42,8 +42,9 @@ let warmupPolling = false;
 const warmupForm = reactive({
   enabled: false,
   playerThreshold: 20,
+  resetThreshold: 10,
+  resetMinutes: 10,
   giftDays: 1,
-  intervalMode: "daily" as "daily" | "hours",
   intervalHours: 24,
   notificationMode: "private" as "private" | "broadcast",
   notificationText: "感谢您的暖服支持！您已获赠{x}天预留位。"
@@ -99,8 +100,9 @@ async function refreshWarmup() {
     Object.assign(warmupForm, {
       enabled: state.enabled,
       playerThreshold: state.playerThreshold,
+      resetThreshold: state.resetThreshold,
+      resetMinutes: state.resetMinutes,
       giftDays: state.giftDays,
-      intervalMode: state.intervalMode,
       intervalHours: state.intervalHours,
       notificationMode: state.notificationMode,
       notificationText: state.notificationText
@@ -159,8 +161,10 @@ async function saveWarmupSettings() {
   const current = warmup.value;
   if (!isOwner.value || !current || warmupSaving.value) return;
   if (!Number.isInteger(warmupForm.playerThreshold) || !Number.isInteger(warmupForm.giftDays) ||
-      !Number.isInteger(warmupForm.intervalHours)) {
-    ElMessage.warning("人数、天数和间隔必须是整数");
+      !Number.isInteger(warmupForm.intervalHours) || !Number.isInteger(warmupForm.resetThreshold) ||
+      !Number.isInteger(warmupForm.resetMinutes) ||
+      warmupForm.resetThreshold >= warmupForm.playerThreshold) {
+    ElMessage.warning("人数、天数和间隔必须是整数，回落人数须小于目标人数");
     return;
   }
   if (!warmupForm.notificationText.trim() || notificationPreview.value.length > 200 ||
@@ -172,7 +176,7 @@ async function saveWarmupSettings() {
   if (warmupForm.enabled) {
     password = await promptPassword(
       "启用暖服自动赠送",
-      "达到人数门槛时，面板会自动写入真实服务器预留位配置。若当前已达到门槛，保存后可能立即触发。确认前请备份服务器配置。"
+      "只有人数持续回落后再次达到门槛，且满足每天最多一次和间隔小时数，才会自动写入真实服务器预留位配置。确认前请备份服务器配置。"
     );
     if (!password) return;
   }
@@ -345,23 +349,19 @@ onBeforeUnmount(stopWarmupPolling);
           :closable="false"
         />
         <p class="text-sm text-gray-500">
-          达到人数门槛时，为该次采样中所有在线玩家赠送预留位。已有更长的限时预留位不会缩短；永久或非面板管理的预留位保持原样。预留位可能需服务器重启后实时生效。
+          人数持续回落后重新达到目标、北京时间进入新的一天、且距离上次赠送已满设定小时数，三项同时满足才赠送。达标时若仍在冷却期，本轮跳过，不会补发。已有更长的限时预留位不会缩短；永久或非面板管理的预留位保持原样。预留位可能需服务器重启后实时生效。
         </p>
         <div class="flex flex-wrap items-center gap-4">
           <span>启用</span><el-switch v-model="warmupForm.enabled" :disabled="!warmup?.collectorEnabled" />
           <span>人数门槛</span><el-input-number v-model="warmupForm.playerThreshold" :min="1" :max="100" />
+          <span>回落至</span><el-input-number v-model="warmupForm.resetThreshold" :min="0" :max="99" /><span>人或以下</span>
+          <span>持续</span><el-input-number v-model="warmupForm.resetMinutes" :min="1" :max="180" /><span>分钟</span>
           <span>赠送天数</span><el-input-number v-model="warmupForm.giftDays" :min="1" :max="3650" />
         </div>
         <div class="flex flex-wrap items-center gap-4">
-          <span>下一轮检测</span>
-          <el-select v-model="warmupForm.intervalMode" class="w-48">
-            <el-option label="北京时间每天一次" value="daily" />
-            <el-option label="按小时间隔" value="hours" />
-          </el-select>
-          <template v-if="warmupForm.intervalMode === 'hours'">
-            <el-input-number v-model="warmupForm.intervalHours" :min="1" :max="720" />
-            <span>小时后</span>
-          </template>
+          <span>北京时间每天最多一次；两次赠送至少间隔</span>
+          <el-input-number v-model="warmupForm.intervalHours" :min="1" :max="720" />
+          <span>小时</span>
           <span>赠送通知</span>
           <el-select v-model="warmupForm.notificationMode" class="w-44">
             <el-option label="逐个私聊" value="private" />
@@ -375,7 +375,7 @@ onBeforeUnmount(stopWarmupPolling);
         </div>
         <p class="text-sm text-gray-500">
           <span v-if="warmupProgress">当前在线人数：{{ warmupProgress }}；</span>
-          下次可检测：{{ warmup?.nextDetectionAt ? new Date(warmup.nextDetectionAt).toLocaleString() : "现在" }}。
+          人数状态：{{ warmup?.cyclePhase === "armed" ? "已完成回落，等待重新达标" : "等待人数持续回落" }}；冷却结束：{{ warmup?.nextDetectionAt ? new Date(warmup.nextDetectionAt).toLocaleString() : "无历史赠送" }}。
           自动赠送默认关闭，保存为启用时需再次输入管理员密码。
         </p>
         <el-button type="primary" :loading="warmupSaving" :disabled="!warmup?.configured" @click="saveWarmupSettings">保存暖服规则</el-button>

@@ -23,11 +23,10 @@ def next_detection(config: dict, last: dict | None) -> datetime | None:
     if last is None:
         return None
     started = datetime.fromisoformat(last["started_at"]).astimezone(UTC)
-    if config["interval_mode"] == "daily":
-        local = started.astimezone(_LOCAL_ZONE)
-        return (local.replace(hour=0, minute=0, second=0, microsecond=0)
+    local = started.astimezone(_LOCAL_ZONE)
+    next_day = (local.replace(hour=0, minute=0, second=0, microsecond=0)
                 + timedelta(days=1)).astimezone(UTC)
-    return started + timedelta(hours=config["interval_hours"])
+    return max(next_day, started + timedelta(hours=config["interval_hours"]))
 
 
 class WarmupEngine:
@@ -39,6 +38,9 @@ class WarmupEngine:
         self._online: dict[str, str] = {}
         self._count = 0
         self._observed_at = 0.0
+        self._sample_seq = 0
+        self._processed_seq = 0
+        self._processed_origin = ""
 
     def observe(self, origin: str, players: list[dict]) -> None:
         """Accept only complete fresh rosters from the history collector."""
@@ -50,6 +52,7 @@ class WarmupEngine:
                         if item.get("steamId")}
         self._count = len(players)
         self._observed_at = monotonic()
+        self._sample_seq += 1
 
     def status(self, origin: str) -> dict:
         config = self.store.config()
@@ -60,6 +63,7 @@ class WarmupEngine:
             "lastRun": last,
             "nextDetectionAt": due.isoformat() if due else None,
             "attentionRequired": self.store.blocked(origin),
+            "cyclePhase": self.store.cycle(origin)["phase"],
         }
 
     def _fresh(self) -> bool:
@@ -134,7 +138,19 @@ class WarmupEngine:
             if not config["enabled"] or config["origin"] != origin:
                 return
             await self._send_pending(origin)
-            if self._count < config["player_threshold"] or self.store.blocked(origin):
+            if self._sample_seq == self._processed_seq and self._processed_origin == origin:
+                return
+            first_sample = self._processed_origin != origin
+            self._processed_seq = self._sample_seq
+            self._processed_origin = origin
+            crossed = self.store.advance_cycle(
+                origin, self._count,
+                reset_threshold=config["reset_threshold"],
+                reset_minutes=config["reset_minutes"],
+                player_threshold=config["player_threshold"],
+                now=datetime.now(UTC), first_sample=first_sample,
+            )
+            if not crossed or self.store.blocked(origin):
                 return
             due = next_detection(config, self.store.latest(origin))
             if due is not None and datetime.now(UTC) < due:

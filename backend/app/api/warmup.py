@@ -21,8 +21,10 @@ class WarmupConfigBody(BaseModel):
     targetRevision: str = Field(min_length=1, max_length=128)
     enabled: StrictBool
     playerThreshold: StrictInt = Field(ge=1, le=100)
+    resetThreshold: StrictInt = Field(ge=0, le=99)
+    resetMinutes: StrictInt = Field(ge=1, le=180)
     giftDays: StrictInt = Field(ge=1, le=3650)
-    intervalMode: Literal["daily", "hours"]
+    intervalMode: Literal["daily", "hours"] = "daily"  # Legacy clients; both limits apply.
     intervalHours: StrictInt = Field(ge=1, le=720)
     notificationMode: Literal["private", "broadcast"]
     notificationText: str = Field(default=DEFAULT_NOTIFICATION_TEXT, min_length=1, max_length=200)
@@ -30,6 +32,8 @@ class WarmupConfigBody(BaseModel):
 
     @model_validator(mode="after")
     def valid_notification_text(self):
+        if self.resetThreshold >= self.playerThreshold:
+            raise ValueError("回落人数必须小于目标人数")
         self.notificationText = self.notificationText.strip()
         rendered = self.notificationText.replace("{x}", str(self.giftDays))
         if not self.notificationText or len(rendered) > 200 or any(
@@ -54,6 +58,8 @@ def _public(request: Request) -> dict:
     return {
         "enabled": config["enabled"] and config["origin"] == origin,
         "playerThreshold": config["player_threshold"],
+        "resetThreshold": config["reset_threshold"],
+        "resetMinutes": config["reset_minutes"],
         "giftDays": config["gift_days"],
         "intervalMode": config["interval_mode"],
         "intervalHours": config["interval_hours"],
@@ -87,6 +93,7 @@ async def get_warmup_status(request: Request, response: Response) -> dict:
         return {
             "observedPlayers": status["observedPlayers"],
             "playerThreshold": config["player_threshold"],
+            "cyclePhase": status["cyclePhase"],
             "nextDetectionAt": status["nextDetectionAt"],
             "attentionRequired": status["attentionRequired"],
             "lastRunId": status["lastRun"]["id"] if status["lastRun"] else None,
@@ -111,6 +118,8 @@ async def save_warmup(payload: WarmupConfigBody, request: Request,
             runtime.target.origin,
             enabled=payload.enabled,
             player_threshold=payload.playerThreshold,
+            reset_threshold=payload.resetThreshold,
+            reset_minutes=payload.resetMinutes,
             gift_days=payload.giftDays,
             interval_mode=payload.intervalMode,
             interval_hours=payload.intervalHours,

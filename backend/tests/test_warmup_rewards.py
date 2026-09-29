@@ -22,6 +22,7 @@ ORIGIN = "https://rcon.example.invalid"
 A = "76561198000000001"
 B = "76561198000000002"
 C = "76561198000000003"
+D = "76561198000000004"
 
 
 def make_app(tmp_path, *, timeout=False):
@@ -67,6 +68,7 @@ def enable(app, *, threshold=3, days=2, mode="private",
         ORIGIN, enabled=True, player_threshold=threshold, gift_days=days,
         interval_mode="hours", interval_hours=24, notification_mode=mode,
         notification_text=message,
+        reset_threshold=threshold - 1, reset_minutes=0,
     )
 
 
@@ -75,12 +77,51 @@ def players(*ids):
             for index, sid in enumerate(ids)]
 
 
-def test_daily_and_hourly_next_detection():
+def test_daily_and_hourly_limits_both_apply():
     last = {"started_at": "2026-09-27T15:59:00+00:00"}
-    assert next_detection({"interval_mode": "daily"}, last) == datetime.fromisoformat(
-        "2026-09-27T16:00:00+00:00")
-    assert next_detection({"interval_mode": "hours", "interval_hours": 6}, last) == datetime.fromisoformat(
+    assert next_detection({"interval_hours": 6}, last) == datetime.fromisoformat(
         "2026-09-27T21:59:00+00:00")
+    assert next_detection({"interval_hours": 1}, last) == datetime.fromisoformat(
+        "2026-09-27T16:59:00+00:00")
+    assert next_detection({"interval_hours": 1}, {"started_at": "2026-09-27T00:00:00+00:00"}) == datetime.fromisoformat(
+        "2026-09-27T16:00:00+00:00")
+
+
+def test_low_population_must_be_continuous_before_rearming(tmp_path):
+    app, _ = make_app(tmp_path)
+    store = app.state.warmup_store
+    start = datetime(2026, 9, 27, 0, tzinfo=UTC)
+    def sample(count, seconds):
+        return store.advance_cycle(ORIGIN, count, reset_threshold=10,
+                                   reset_minutes=10, player_threshold=20,
+                                   now=start + timedelta(seconds=seconds))
+    assert not sample(9, 0)
+    assert not sample(11, 300)  # A rise interrupts the low window.
+    for seconds in range(305, 905, 5):
+        assert not sample(9, seconds)
+    assert store.cycle(ORIGIN)["phase"] == "waiting_low"
+    assert not sample(9, 905)
+    assert store.cycle(ORIGIN)["phase"] == "armed"
+    assert sample(20, 910)
+    assert not sample(20, 915)
+    asyncio.run(app.state.rcon_runtime.close())
+
+
+def test_restart_while_full_does_not_turn_persisted_arm_into_a_reward(tmp_path):
+    app, _ = make_app(tmp_path)
+    start = datetime(2026, 9, 27, 0, tzinfo=UTC)
+    store = app.state.warmup_store
+    assert not store.advance_cycle(ORIGIN, 0, reset_threshold=10, reset_minutes=0,
+                                   player_threshold=20, now=start)
+    assert store.cycle(ORIGIN)["phase"] == "armed"
+    restarted = WarmupStore(app.state.database)
+    restarted.initialize()
+    assert restarted.cycle(ORIGIN)["phase"] == "armed"
+    assert not restarted.advance_cycle(ORIGIN, 20, reset_threshold=10,
+                                       reset_minutes=0, player_threshold=20,
+                                       now=start + timedelta(seconds=5), first_sample=True)
+    assert restarted.cycle(ORIGIN)["phase"] == "waiting_low"
+    asyncio.run(app.state.rcon_runtime.close())
 
 
 def test_existing_warmup_tables_gain_editable_notification_without_losing_policy(tmp_path):
@@ -105,6 +146,8 @@ def test_existing_warmup_tables_gain_editable_notification_without_losing_policy
     store.initialize()
     store.initialize()
     assert store.config()["player_threshold"] == 30
+    assert store.config()["reset_threshold"] == 15
+    assert store.config()["reset_minutes"] == 10
     assert store.config()["notification_text"] == DEFAULT_NOTIFICATION_TEXT
     assert store.latest("test-origin")["notification_text"] == DEFAULT_NOTIFICATION_TEXT
 
@@ -147,6 +190,8 @@ def test_existing_short_expiry_resets_to_gift_window_without_config_write(tmp_pa
     app.state.database.put_reserved_metadata(
         ORIGIN, A, "原有预留", (datetime.now(UTC) + timedelta(hours=6)).isoformat())
     engine = app.state.warmup_engine
+    engine.observe(ORIGIN, players())
+    asyncio.run(engine.tick())
     engine.observe(ORIGIN, players(A))
     asyncio.run(engine.tick())
     assert state["writes"] == []
@@ -163,6 +208,8 @@ def test_uncertain_config_write_blocks_every_later_detection(tmp_path):
     app, state = make_app(tmp_path, timeout=True)
     enable(app, threshold=1)
     engine = app.state.warmup_engine
+    engine.observe(ORIGIN, players())
+    asyncio.run(engine.tick())
     engine.observe(ORIGIN, players(B))
     asyncio.run(engine.tick())
     assert len(state["writes"]) == 1
@@ -171,6 +218,34 @@ def test_uncertain_config_write_blocks_every_later_detection(tmp_path):
     asyncio.run(engine.tick())
     assert len(state["writes"]) == 1
     assert app.state.warmup_store.blocked(ORIGIN)
+    asyncio.run(app.state.rcon_runtime.close())
+
+
+def test_cooldown_crossing_is_skipped_and_full_server_never_gets_delayed_reward(tmp_path):
+    app, state = make_app(tmp_path)
+    enable(app, threshold=1)
+    engine = app.state.warmup_engine
+    engine.observe(ORIGIN, players())
+    asyncio.run(engine.tick())
+    engine.observe(ORIGIN, players(B))
+    asyncio.run(engine.tick())
+    assert len(app.state.warmup_store.recent(ORIGIN)) == 1
+    engine.observe(ORIGIN, players())
+    asyncio.run(engine.tick())
+    engine.observe(ORIGIN, players(D))  # Crosses while both time limits are active.
+    asyncio.run(engine.tick())
+    assert len(app.state.warmup_store.recent(ORIGIN)) == 1
+    with app.state.database._connect() as db:
+        db.execute("UPDATE warmup_runs SET started_at=?", ((datetime.now(UTC) - timedelta(days=2)).isoformat(),))
+    engine.observe(ORIGIN, players(D))  # Still full after cooldown: no retroactive gift.
+    asyncio.run(engine.tick())
+    assert len(app.state.warmup_store.recent(ORIGIN)) == 1
+    engine.observe(ORIGIN, players())
+    asyncio.run(engine.tick())
+    engine.observe(ORIGIN, players(D))
+    asyncio.run(engine.tick())
+    assert len(app.state.warmup_store.recent(ORIGIN)) == 2
+    assert len(state["writes"]) == 2
     asyncio.run(app.state.rcon_runtime.close())
 
 
@@ -185,7 +260,8 @@ def test_owner_config_requires_reauthentication_and_subuser_cannot_change(tmp_pa
         assert current["enabled"] is False
         assert current["notificationText"] == "感谢您的暖服支持！您已获赠{x}天预留位。"
         body = {"targetRevision": current["targetRevision"], "enabled": True,
-                "playerThreshold": 20, "giftDays": 1, "intervalMode": "daily",
+                "playerThreshold": 20, "resetThreshold": 10, "resetMinutes": 10,
+                "giftDays": 1,
                 "intervalHours": 24, "notificationMode": "private",
                 "notificationText": "谢谢支持，奖励{x}天"}
         assert client.put("/api/warmup", json={**body, "notificationText": "错误\n公告"},
@@ -202,6 +278,7 @@ def test_owner_config_requires_reauthentication_and_subuser_cannot_change(tmp_pa
         assert status.status_code == 200
         assert status.json()["observedPlayers"] == 3
         assert status.json()["playerThreshold"] == 20
+        assert status.json()["cyclePhase"] == "waiting_low"
         assert client.post("/api/subusers", json={
             "username": "viewer", "password": "test-viewer-password",
         }, headers={"Origin": PANEL}).status_code == 201

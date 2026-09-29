@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from app.storage.db import Database
@@ -22,6 +22,8 @@ class WarmupStore:
                     id INTEGER PRIMARY KEY CHECK(id=1), origin TEXT NOT NULL,
                     enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
                     player_threshold INTEGER NOT NULL, gift_days INTEGER NOT NULL,
+                    reset_threshold INTEGER NOT NULL DEFAULT 10,
+                    reset_minutes INTEGER NOT NULL DEFAULT 10,
                     interval_mode TEXT NOT NULL CHECK(interval_mode IN ('daily','hours')),
                     interval_hours INTEGER NOT NULL,
                     notification_mode TEXT NOT NULL CHECK(notification_mode IN ('private','broadcast')),
@@ -46,12 +48,24 @@ class WarmupStore:
                     notification_status TEXT NOT NULL DEFAULT 'pending',
                     PRIMARY KEY(run_id, steam_id)
                 );
+                CREATE TABLE IF NOT EXISTS warmup_cycle (
+                    origin TEXT PRIMARY KEY,
+                    phase TEXT NOT NULL CHECK(phase IN ('waiting_low','armed')),
+                    low_since TEXT,
+                    last_sample_at TEXT
+                );
             """)
             for table in ("warmup_config", "warmup_runs"):
                 columns = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
                 if "notification_text" not in columns:
                     db.execute(f"ALTER TABLE {table} ADD COLUMN notification_text TEXT NOT NULL "
                                "DEFAULT '感谢您的暖服支持！您已获赠{x}天预留位。'")
+            config_columns = {row["name"] for row in db.execute("PRAGMA table_info(warmup_config)")}
+            if "reset_threshold" not in config_columns:
+                db.execute("ALTER TABLE warmup_config ADD COLUMN reset_threshold INTEGER NOT NULL DEFAULT 10")
+                db.execute("UPDATE warmup_config SET reset_threshold=max(0, CAST(player_threshold / 2 AS INTEGER))")
+            if "reset_minutes" not in config_columns:
+                db.execute("ALTER TABLE warmup_config ADD COLUMN reset_minutes INTEGER NOT NULL DEFAULT 10")
             db.execute("""INSERT OR IGNORE INTO warmup_config
                 (id,origin,enabled,player_threshold,gift_days,interval_mode,
                  interval_hours,notification_mode,updated_at)
@@ -70,15 +84,75 @@ class WarmupStore:
 
     def save(self, origin: str, *, enabled: bool, player_threshold: int,
              gift_days: int, interval_mode: str, interval_hours: int,
-             notification_mode: str, notification_text: str = DEFAULT_NOTIFICATION_TEXT) -> dict:
+             notification_mode: str, notification_text: str = DEFAULT_NOTIFICATION_TEXT,
+             reset_threshold: int = 0, reset_minutes: int = 10) -> dict:
         with self.db._connect() as db:
+            previous = db.execute("SELECT origin,enabled,player_threshold,reset_threshold,reset_minutes "
+                                  "FROM warmup_config WHERE id=1").fetchone()
             db.execute("""UPDATE warmup_config SET origin=?,enabled=?,player_threshold=?,
                 gift_days=?,interval_mode=?,interval_hours=?,notification_mode=?,
-                notification_text=?,updated_at=?
+                notification_text=?,reset_threshold=?,reset_minutes=?,updated_at=?
                 WHERE id=1""", (origin, int(enabled), player_threshold, gift_days,
-                interval_mode, interval_hours, notification_mode, notification_text,
+                'daily', interval_hours, notification_mode, notification_text,
+                reset_threshold, reset_minutes,
                 datetime.now(UTC).isoformat()))
+            if (previous is None or previous["origin"] != origin or
+                (enabled and not previous["enabled"]) or
+                previous["player_threshold"] != player_threshold or
+                previous["reset_threshold"] != reset_threshold or
+                previous["reset_minutes"] != reset_minutes):
+                db.execute("""INSERT INTO warmup_cycle(origin,phase,low_since,last_sample_at)
+                    VALUES (?,'waiting_low',NULL,NULL) ON CONFLICT(origin) DO UPDATE SET
+                    phase='waiting_low',low_since=NULL,last_sample_at=NULL""", (origin,))
         return self.config()
+
+    def cycle(self, origin: str) -> dict:
+        with self.db._connect() as db:
+            row = db.execute("SELECT phase,low_since,last_sample_at FROM warmup_cycle WHERE origin=?",
+                             (origin,)).fetchone()
+        return dict(row) if row else {"phase": "waiting_low", "low_since": None,
+                                      "last_sample_at": None}
+
+    def advance_cycle(self, origin: str, count: int, *, reset_threshold: int,
+                      reset_minutes: int, player_threshold: int,
+                      now: datetime, first_sample: bool = False) -> bool:
+        """Consume one complete roster; true only for a fresh low-to-high crossing."""
+        stamp = now.isoformat()
+        with self.db._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT phase,low_since,last_sample_at FROM warmup_cycle WHERE origin=?",
+                             (origin,)).fetchone()
+            phase = row["phase"] if row else "waiting_low"
+            low_since = row["low_since"] if row else None
+            last_sample = row["last_sample_at"] if row else None
+            if first_sample and count >= player_threshold:
+                phase, low_since = "waiting_low", None
+            elif count <= reset_threshold:
+                if phase != "armed":
+                    gap = (now - datetime.fromisoformat(last_sample).astimezone(UTC)
+                           if last_sample else None)
+                    contiguous = gap is not None and timedelta(0) <= gap <= timedelta(seconds=15)
+                    if not contiguous or low_since is None:
+                        low_since = stamp
+                    if now - datetime.fromisoformat(low_since).astimezone(UTC) >= timedelta(minutes=reset_minutes):
+                        phase, low_since = "armed", None
+            elif count >= player_threshold:
+                crossed = phase == "armed"
+                phase, low_since = "waiting_low", None
+                db.execute("""INSERT INTO warmup_cycle(origin,phase,low_since,last_sample_at)
+                    VALUES (?,?,?,?) ON CONFLICT(origin) DO UPDATE SET
+                    phase=excluded.phase,low_since=excluded.low_since,
+                    last_sample_at=excluded.last_sample_at""",
+                    (origin, phase, low_since, stamp))
+                return crossed
+            elif phase != "armed":
+                low_since = None
+            db.execute("""INSERT INTO warmup_cycle(origin,phase,low_since,last_sample_at)
+                VALUES (?,?,?,?) ON CONFLICT(origin) DO UPDATE SET
+                phase=excluded.phase,low_since=excluded.low_since,
+                last_sample_at=excluded.last_sample_at""",
+                (origin, phase, low_since, stamp))
+        return False
 
     def latest(self, origin: str) -> dict | None:
         with self.db._connect() as db:
