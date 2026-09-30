@@ -30,6 +30,7 @@ from app.api.steam import router as steam_router
 from app.api.status import router as status_router
 from app.api.subusers import router as subusers_router
 from app.api.warmup import router as warmup_router
+from app.api.updates import router as updates_router
 from app.auth.sessions import AuthService
 from app.config import PanelSettings, load_settings
 from app.errors import install_error_handlers
@@ -43,6 +44,7 @@ from app.storage.db import Database
 from app.steam.service import SteamProfileService
 from app.warmup.engine import WarmupEngine
 from app.warmup.store import WarmupStore
+from app.updates import APP_VERSION, ReleaseChecker
 
 
 class FrontendFiles(StaticFiles):
@@ -84,6 +86,7 @@ def create_app(
     history_collector = HistoryCollector(rcon_runtime, history_store, rules_engine,
                                          warmup=warmup_engine)
     reservation_expirer = ReservationExpirer(rcon_runtime, database)
+    release_checker = ReleaseChecker()
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -119,8 +122,9 @@ def create_app(
                     pass
             await rcon_runtime.close()
             await steam_service.close()
+            await release_checker.close()
 
-    app = FastAPI(title="Wardogs RCON Panel", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Wardogs RCON Panel", version=APP_VERSION, lifespan=lifespan)
     app.state.settings = settings
     app.state.database = database
     app.state.auth_service = auth_service
@@ -134,6 +138,7 @@ def create_app(
     app.state.warmup_store = warmup_store
     app.state.warmup_engine = warmup_engine
     app.state.reservation_expirer = reservation_expirer
+    app.state.release_checker = release_checker
     app.state.capability_service = RuntimeCapabilityService(rcon_runtime)
     app.state.read_service = RuntimeReadService(rcon_runtime)
 
@@ -155,6 +160,7 @@ def create_app(
         rules_router,
         warmup_router,
         steam_router,
+        updates_router,
     ):
         app.include_router(router)
 
