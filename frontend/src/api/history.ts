@@ -15,7 +15,13 @@ export interface HistoryMatch {
   player_count?: number;
 }
 
-export interface HistoryPlayer {
+export interface PlayerTotals {
+  total_kills: number | null;
+  total_deaths: number | null;
+  latest_cash: number | null;
+  peak_cash: number | null;
+}
+export interface HistoryPlayer extends PlayerTotals {
   steam_id: string;
   name: string;
   first_seen: string;
@@ -41,15 +47,35 @@ export interface MatchPlayer {
   ended_seen?: string | null;
 }
 
-export interface Page<T> { total: number; items: T[] }
-export interface MatchDetail extends HistoryMatch { players: MatchPlayer[] }
-export interface PlayerDetail { steamId: string; name: string; matches: MatchPlayer[] }
+export interface Page<T> {
+  total: number;
+  items: T[];
+}
+export interface MatchDetail extends HistoryMatch {
+  players: MatchPlayer[];
+}
+export interface PlayerDetail {
+  steamId: string;
+  name: string;
+  matches: MatchPlayer[];
+  totals: PlayerTotals;
+}
 
 export const getHistoryMatches = (offset = 0) =>
-  http.request<Page<HistoryMatch>>("get", "/api/history/matches", { params: { offset } });
+  http.request<Page<HistoryMatch>>("get", "/api/history/matches", {
+    params: { offset }
+  });
 export const getHistoryMatch = (id: string) =>
-  http.request<MatchDetail>("get", `/api/history/matches/${encodeURIComponent(id)}`);
+  http.request<MatchDetail>(
+    "get",
+    `/api/history/matches/${encodeURIComponent(id)}`
+  );
 export const getHistoryPlayers = (search = "", offset = 0) =>
-  http.request<Page<HistoryPlayer>>("get", "/api/history/players", { params: { search, offset } });
+  http.request<Page<HistoryPlayer>>("get", "/api/history/players", {
+    params: { search, offset }
+  });
 export const getHistoryPlayer = (id: string) =>
-  http.request<PlayerDetail>("get", `/api/history/players/${encodeURIComponent(id)}`);
+  http.request<PlayerDetail>(
+    "get",
+    `/api/history/players/${encodeURIComponent(id)}`
+  );

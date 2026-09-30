@@ -27,6 +27,7 @@ class HistoryStore:
 
     def initialize(self) -> None:
         with self.db._connect() as db:
+            migrate_stats = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_totals'").fetchone() is None
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS observed_matches (
                     id TEXT PRIMARY KEY, origin TEXT NOT NULL, map TEXT,
@@ -48,7 +49,45 @@ class HistoryStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_observed_players_steam
                     ON observed_players(steam_id, match_id);
+                CREATE TABLE IF NOT EXISTS player_totals (
+                    origin TEXT NOT NULL, steam_id TEXT NOT NULL, match_id TEXT NOT NULL,
+                    total_kills INTEGER, total_deaths INTEGER, last_kills INTEGER,
+                    last_deaths INTEGER, latest_cash INTEGER, peak_cash INTEGER,
+                    PRIMARY KEY(origin, steam_id)
+                );
             """)
+            if migrate_stats:
+                # Old records contain one last snapshot per observed match.
+                # Backfill those available values, never invent missing samples.
+                for row in db.execute("SELECT p.*,m.origin FROM observed_players p JOIN observed_matches m ON m.id=p.match_id ORDER BY p.last_seen,p.match_id").fetchall():
+                    self._stats(db, row['origin'], row['match_id'], dict(row))
+
+    @staticmethod
+    def _stats(db, origin, match_id, player):
+        steam_id = player.get('steamId') or player.get('steam_id')
+        old = db.execute("SELECT t.*,m.end_reason FROM player_totals t LEFT JOIN observed_matches m ON m.id=t.match_id WHERE t.origin=? AND t.steam_id=?", (origin, steam_id)).fetchone()
+        reset = old is not None and old['match_id'] != match_id and old['end_reason'] not in ('observation_gap', 'target_changed')
+        values = []
+        for key in ('kills', 'deaths'):
+            current = player.get(key)
+            previous = old['last_' + key] if old else None
+            total = old['total_' + key] if old else None
+            if isinstance(current, int) and not isinstance(current, bool) and current >= 0:
+                increment = current if previous is None or reset or current < previous else current - previous
+                total = (total or 0) + increment
+                previous = current
+            values.extend((total, previous))
+        cash = player.get('cash')
+        if not isinstance(cash, int) or isinstance(cash, bool):
+            cash = old['latest_cash'] if old else None
+        peak = old['peak_cash'] if old else None
+        peak = max(peak, cash) if peak is not None and cash is not None else cash if peak is None else peak
+        db.execute("""INSERT INTO player_totals
+            (origin,steam_id,match_id,total_kills,last_kills,total_deaths,last_deaths,latest_cash,peak_cash)
+            VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(origin,steam_id) DO UPDATE SET
+            match_id=excluded.match_id,total_kills=excluded.total_kills,last_kills=excluded.last_kills,
+            total_deaths=excluded.total_deaths,last_deaths=excluded.last_deaths,
+            latest_cash=excluded.latest_cash,peak_cash=excluded.peak_cash""", (origin, steam_id, match_id, *values, cash, peak))
 
     def record(self, origin: str, status: dict, players: dict, at: datetime | None = None) -> str:
         """Commit one fresh pair atomically. No missing or stale response reaches this method."""
@@ -110,6 +149,7 @@ class HistoryStore:
                 steam_id = player.get("steamId")
                 if not steam_id:
                     continue
+                self._stats(db, origin, match_id, player)
                 db.execute("""INSERT INTO observed_players
                     (match_id,steam_id,name,faction,first_seen,last_seen,kills,deaths,cash,ping_ms)
                     VALUES (?,?,?,?,?,?,?,?,?,?)
@@ -149,14 +189,19 @@ class HistoryStore:
         args = (origin, pattern, pattern)
         with self.db._connect() as db:
             total = db.execute("SELECT COUNT(DISTINCT p.steam_id) " + base, args).fetchone()[0]
-            rows = db.execute("""SELECT p.steam_id, MAX(p.name) AS name,
+            rows = db.execute("""SELECT p.steam_id, (SELECT n.name FROM observed_players n JOIN observed_matches nm ON nm.id=n.match_id WHERE n.steam_id=p.steam_id AND nm.origin=m.origin ORDER BY n.last_seen DESC LIMIT 1) AS name,
                 MIN(p.first_seen) AS first_seen, MAX(p.last_seen) AS last_seen,
-                COUNT(DISTINCT p.match_id) AS match_count """ + base +
+                COUNT(DISTINCT p.match_id) AS match_count,
+                (SELECT total_kills FROM player_totals WHERE origin=m.origin AND steam_id=p.steam_id) AS total_kills,
+                (SELECT total_deaths FROM player_totals WHERE origin=m.origin AND steam_id=p.steam_id) AS total_deaths,
+                (SELECT latest_cash FROM player_totals WHERE origin=m.origin AND steam_id=p.steam_id) AS latest_cash,
+                (SELECT peak_cash FROM player_totals WHERE origin=m.origin AND steam_id=p.steam_id) AS peak_cash """ + base +
                 " GROUP BY p.steam_id ORDER BY last_seen DESC LIMIT ? OFFSET ?", (*args, limit, offset)).fetchall()
         return {"total": total, "items": [dict(row) for row in rows]}
 
     def player(self, origin: str, steam_id: str) -> dict | None:
         with self.db._connect() as db:
+            totals = db.execute("SELECT total_kills,total_deaths,latest_cash,peak_cash FROM player_totals WHERE origin=? AND steam_id=?", (origin, steam_id)).fetchone()
             rows = db.execute("""SELECT p.*, m.map, m.first_seen AS match_first_seen,
                 m.last_seen AS match_last_seen, m.ended_seen, m.end_reason
                 FROM observed_players p JOIN observed_matches m ON m.id=p.match_id
@@ -165,4 +210,5 @@ class HistoryStore:
         if not rows:
             return None
         return {"steamId": steam_id, "name": rows[0]["name"],
+                "totals": dict(totals) if totals else {},
                 "matches": [dict(row) for row in rows]}

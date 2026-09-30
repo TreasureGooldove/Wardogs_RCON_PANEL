@@ -9,6 +9,9 @@ from fastapi.responses import JSONResponse
 
 
 _ERRORS: dict[str, tuple[int, str]] = {
+    "updater_unavailable": (503, "宿主机更新程序未启用，请按部署教程安装更新服务"),
+    "update_busy": (409, "已有更新任务正在执行"),
+    "update_not_available": (409, "没有可校验的新版本安装包"),
     "not_authenticated": (401, "请先登录管理面板"),
     "permission_denied": (403, "当前账号没有此操作权限"),
     "invalid_credentials": (401, "用户名或密码错误"),

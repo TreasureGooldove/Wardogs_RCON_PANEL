@@ -1,0 +1,46 @@
+name: Publish Gitee Release and update mirror
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag
+        required: true
+permissions:
+  contents: read
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download published artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh release download "$RELEASE_TAG" --pattern "Wardogs_RCON_PANEL-$RELEASE_TAG.zip" --pattern 'SHA256SUMS.txt' --dir artifacts
+          gh release view "$RELEASE_TAG" --json body --jq .body > artifacts/notes.md
+          cd artifacts && sha256sum -c SHA256SUMS.txt
+      - name: Publish Gitee artifacts
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          cat > "$RUNNER_TEMP/gitee-askpass" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'gooldove' ;;
+            *) printf '%s\n' "$GITEE_TOKEN" ;;
+          esac
+          ASKPASS
+          chmod 700 "$RUNNER_TEMP/gitee-askpass"
+          export GIT_ASKPASS="$RUNNER_TEMP/gitee-askpass" GIT_TERMINAL_PROMPT=0
+          git fetch origin main
+          git push https://gitee.com/gooldove/Wardogs_RCON_PANEL.git origin/main:refs/heads/main "refs/tags/$RELEASE_TAG"
+          python deploy/publish-gitee.py "$RELEASE_TAG" "artifacts/Wardogs_RCON_PANEL-$RELEASE_TAG.zip" artifacts/SHA256SUMS.txt artifacts/notes.md
+          rm "$RUNNER_TEMP/gitee-askpass"

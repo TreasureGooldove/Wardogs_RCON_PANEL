@@ -21,6 +21,9 @@ export type ApiErrorCode =
   | "settings_key_unavailable"
   | "settings_public_http_disabled"
   | "write_disabled"
+  | "updater_unavailable"
+  | "update_busy"
+  | "update_not_available"
   | "config_interface_inconsistent"
   | "invalid_moderation_target"
   | "player_not_online"
@@ -59,6 +62,9 @@ const messages: Record<ApiErrorCode, string> = {
   settings_public_http_disabled:
     "服务器部署策略未允许公网 HTTP RCON，请先配置 HTTPS 或私网通道",
   write_disabled: "服务器管理操作尚未启用",
+  updater_unavailable: "宿主机更新程序未启用，请按部署教程安装更新服务",
+  update_busy: "已有更新任务正在执行",
+  update_not_available: "没有可校验的新版本安装包",
   config_interface_inconsistent:
     "官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入",
   invalid_moderation_target: "玩家 SteamID 无效，请刷新名单后重试",

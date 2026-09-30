@@ -121,4 +121,23 @@ In Server Settings, enable public HTTP RCON, enter the address and RCON password
 
 Verify health, page access, login, and read-only queries. Do not test disruptive game commands while players are online. Investigate uncertain writes before any retry.
 
-The navigation automatically checks this repository's latest stable GitHub Release. Failures are reported; updates are not installed automatically. Back up the database and environment, download and verify `SHA256SUMS.txt`, replace application/frontend build files, and run `docker compose -f deploy/compose.yaml up -d --build`. Retain the previous version for rollback.
+The navigation checks stable GitHub and Gitee releases. Automatic installation requires the host service below and an explicit owner opt-in. Manual updates remain available: back up the database and environment, verify `SHA256SUMS.txt`, replace application/frontend build files, and run `docker compose -f deploy/compose.yaml up -d --build`. Retain the previous version for rollback.
+## Automatic updates and Gitee publishing
+
+The panel compares stable GitHub and Gitee releases, preferring Gitee for equal versions. If a Release is missing or lacks a verifiable package, it reads `latest.json` from the `updates` branch containing a prebuilt package and SHA-256. It never installs unbuilt main-branch source. Failed sources are reported explicitly.
+
+For the standard Linux Docker deployment at `/opt/wardogs-rcon-panel` (container `wardogs-rcon-panel`, database `data/panel.sqlite3`), back up the database and environment first, then install:
+
+```bash
+sudo install -m 700 deploy/update-agent.py /usr/local/sbin/wardogs-panel-updater
+sudo install -m 644 deploy/wardogs-panel-updater.service /etc/systemd/system/
+sudo install -m 644 deploy/wardogs-panel-updater.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now wardogs-panel-updater.timer
+```
+
+Adjust the service's `ExecStart` for a different directory. Other deployment layouts require manual updates. The host service runs as root with Docker privileges; the panel container does not mount the Docker socket. Automatic installation is **off by default**. The owner must confirm the current password to install once or enable hourly background updates. Only the panel restarts; the game server stays running.
+
+The service independently validates the package checksum, paths and version, backs up SQLite, builds the image and checks health. It attempts image/database rollback on failure; interrupted jobs are never automatically replayed. Backups are retained in `.updates-host/`, status in `data/updates/`. Review `systemctl status wardogs-panel-updater.service` on failure. Environment, Compose and accounts are preserved. Reinstall the host helper when its implementation changes.
+
+Set the protected GitHub Actions secret `GITEE_TOKEN` with Gitee repository and Release write permissions. A stable GitHub Release containing `Wardogs_RCON_PANEL-vVERSION.zip` and `SHA256SUMS.txt` triggers Gitee code/tag synchronization, fallback branch publication, and Release creation with attachments. The workflow can also be dispatched with an existing tag. Never commit tokens. If Gitee Releases are empty, use the prebuilt fallback branch; automatic mode also checks GitHub. Stop updating if all sources fail. Checksums from the same trusted repository are not independent signatures; protect maintainer accounts.

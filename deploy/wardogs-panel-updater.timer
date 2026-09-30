@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Wardogs update queue every minute
+
+[Timer]
+OnBootSec=30
+OnUnitInactiveSec=60
+
+[Install]
+WantedBy=timers.target

@@ -75,6 +75,10 @@ pnpm dev
 
 ## 🛠️ 部署与检查
 
+📊 历史玩家列表及详情展示本服已记录的累计击杀、死亡、K/D、最近现金和最高现金。重复采样不重复累加；旧数据仅按已有快照回填，不能恢复采集前的数据，现金不作为累计收入。
+
+🔄 支持 GitHub / [Gitee 国内源](https://gitee.com/gooldove/Wardogs_RCON_PANEL/releases) 检查与安装更新；可启用后台自动更新（默认关闭，管理员密码确认）。Release 为空时使用带 SHA-256 的预构建更新清单；安装失败尝试回退。需要按部署教程安装宿主机更新服务。
+
 部署模板和步骤见 [deploy/README.md](deploy/README.md)。支持 HTTP 与 HTTPS 部署；HTTP 访问在进入登录页面前显示安全提醒。教程包含 HTTP 配置、HTTPS 自动证书及迁移步骤，建议使用 HTTPS。公网明文 HTTP RCON 需要显式启用双重门禁，并会明文传输具有管理权限的 Bearer，优先使用 HTTPS 或受控私网。
 
 ```powershell

@@ -13,16 +13,17 @@ def test_release_comparison_cache_and_safe_link():
         calls = []
         def handler(request):
             calls.append(request)
-            assert str(request.url) == LATEST_API
+            if str(request.url) != LATEST_API:
+                return httpx.Response(404)
             assert "authorization" not in request.headers
             return httpx.Response(200, json={"tag_name": "v0.10.0", "draft": False,
                 "prerelease": False, "html_url": "https://evil.invalid/", "published_at": None})
         checker = ReleaseChecker(httpx.MockTransport(handler))
-        result = await checker.check()
+        result = await checker.check(source="github")
         assert result["updateAvailable"] is True
         assert result["releaseUrl"].endswith("/Wardogs_RCON_PANEL/releases/tag/v0.10.0")
-        assert (await checker.check(refresh=True))["cached"] is True
-        assert len(calls) == 1
+        assert (await checker.check(refresh=True, source="github"))["cached"] is True
+        assert len(calls) == 2
         await checker.close()
     asyncio.run(scenario())
 
@@ -37,7 +38,7 @@ def test_failed_or_unpublished_release_never_claims_current_is_latest():
             (httpx.Response(503), "unavailable"),
         ]:
             checker = ReleaseChecker(httpx.MockTransport(lambda request: response))
-            result = await checker.check()
+            result = await checker.check(source="github")
             assert result["status"] == expected
             assert result["updateAvailable"] is False
             assert result["latestVersion"] is None

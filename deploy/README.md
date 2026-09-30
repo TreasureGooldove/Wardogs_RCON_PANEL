@@ -123,4 +123,27 @@ docker compose -f deploy/compose.yaml up -d --force-recreate panel
 
 检查容器健康状态、页面可达性、登录及只读查询。服务器有玩家时不要测试踢出、封禁、警告、比赛控制或配置写入。结果不确定的写请求先人工核查，不自动重复。
 
-导航栏自动检查本仓库的最新稳定 GitHub Release；失败时显示检查不可用，不会自行安装。升级前备份数据库与环境文件，下载 Release 并核对 `SHA256SUMS.txt`，替换应用源码/前端构建产物后执行 `docker compose -f deploy/compose.yaml up -d --build`。保留旧版本文件以便回退。
+导航栏支持 GitHub、Gitee 和自动选择，比较最新稳定版本，同版本优先 Gitee。Release 为空或缺少可校验安装包时，读取 `updates` 分支的 `latest.json`；该分支仅发布构建完成并带 SHA-256 的发行包，不直接安装主分支源码。更新源不可用时明确显示失败。
+
+### 安装宿主机更新服务（Linux Docker 部署）
+
+先备份数据库与环境文件。以下示例假定面板目录是 `/opt/wardogs-rcon-panel`，容器名为 `wardogs-rcon-panel`，数据文件为 `data/panel.sqlite3`，使用本项目 Compose 模板。自定义路径请同时修改 service 的 `ExecStart`，其他部署形式使用手动更新。
+
+```bash
+cd /opt/wardogs-rcon-panel
+sudo install -m 700 deploy/update-agent.py /usr/local/sbin/wardogs-panel-updater
+sudo install -m 644 deploy/wardogs-panel-updater.service /etc/systemd/system/
+sudo install -m 644 deploy/wardogs-panel-updater.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now wardogs-panel-updater.timer
+```
+
+更新服务以 root 运行，具有 Docker 管理权限；只安装固定仓库发行包。面板容器不挂载 Docker socket。管理员在“检查更新”中输入当前密码，可安装一次或启用后台自动安装。**自动安装默认关闭**，开启后每小时检查；安装时面板短暂离线，游戏服务器不重启。
+
+服务独立下载并核对 SHA-256、检查压缩包路径和版本、备份 SQLite 数据库、构建镜像，再检查新版健康状态。失败时尝试恢复旧镜像与数据库；中断任务不会自动重放。备份在 `.updates-host/`，状态在 `data/updates/`。更新失败需要人工查看 `systemctl status wardogs-panel-updater.service`；不要删除备份。发行包不会覆盖 `panel.env`、Compose、服务器连接或管理员账户。宿主机更新程序本身有改动时，重新执行上面的 `install` 命令。
+
+### 自动发布 Gitee 与空 Release 回退
+
+GitHub 仓库管理员在 Actions secrets 中配置 `GITEE_TOKEN`（Gitee 仓库代码与 Release 写入权限）。发布稳定 GitHub Release，并附带 `Wardogs_RCON_PANEL-v版本.zip` 与 `SHA256SUMS.txt` 后，`publish-gitee.yml` 同步主分支/标签、更新 Gitee 的 `updates` 分支，并发布同版本 Gitee Release 与附件。也可在 Actions 手动输入已有标签补发。不要将访问令牌写入文件或提交。
+
+Gitee Release 暂不可用时，面板读取备用分支上的构建包与校验清单；自动模式还会检查 GitHub。两者均不可用则停止更新，保留当前版本。包与校验清单来自相同受信仓库，不是独立数字签名；仓库维护者账户应妥善保护。

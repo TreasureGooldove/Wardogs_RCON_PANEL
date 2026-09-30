@@ -12,7 +12,8 @@ import {
   type HistoryMatch,
   type HistoryPlayer,
   type MatchDetail,
-  type PlayerDetail
+  type PlayerDetail,
+  type PlayerTotals
 } from "@/api/history";
 import { factionDisplay } from "@/utils/factions";
 
@@ -86,6 +87,12 @@ function pageChange(page: number) {
 }
 const playerPath = (id: string) => `/history/players/${id}`;
 const matchPath = (id: string) => `/history/matches/${id}`;
+const stat = (value: number | null | undefined) =>
+  value == null ? t("未知") : value.toLocaleString();
+const kd = (row: PlayerTotals) =>
+  row.total_kills == null || row.total_deaths == null || row.total_deaths === 0
+    ? "—"
+    : (row.total_kills / row.total_deaths).toFixed(2);
 </script>
 
 <template>
@@ -216,6 +223,30 @@ const matchPath = (id: string) => `/history/matches/${id}`;
         >{{ playerDetail?.name || $t("玩家") }} ·
         {{ playerDetail?.steamId }}</template
       >
+      <el-descriptions v-if="playerDetail" :column="2" border class="mb-4">
+        <el-descriptions-item :label="$t('累计击杀')">{{
+          stat(playerDetail.totals.total_kills)
+        }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('累计死亡')">{{
+          stat(playerDetail.totals.total_deaths)
+        }}</el-descriptions-item>
+        <el-descriptions-item label="K/D">{{
+          kd(playerDetail.totals)
+        }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('最近现金')">{{
+          stat(playerDetail.totals.latest_cash)
+        }}</el-descriptions-item>
+        <el-descriptions-item :label="$t('最高现金')">{{
+          stat(playerDetail.totals.peak_cash)
+        }}</el-descriptions-item>
+      </el-descriptions>
+      <p class="mb-3 text-sm text-gray-500">
+        {{
+          $t(
+            "统计仅覆盖面板已记录的本服数据；旧记录按已有快照回填，现金为余额而非累计收入。"
+          )
+        }}
+      </p>
       <p class="mb-3 text-sm text-gray-500">
         {{ $t("最近 100 场观测到的对局") }}
       </p>
@@ -259,6 +290,13 @@ const matchPath = (id: string) => `/history/matches/${id}`;
       shadow="never"
     >
       <template #header>{{ $t("历史玩家（") }}{{ total }}）</template>
+      <p class="mb-3 text-sm text-gray-500">
+        {{
+          $t(
+            "统计仅覆盖面板已记录的本服数据；旧记录按已有快照回填，现金为余额而非累计收入。"
+          )
+        }}
+      </p>
       <div class="mb-4 flex gap-2">
         <el-input
           v-model="search"
@@ -279,6 +317,39 @@ const matchPath = (id: string) => `/history/matches/${id}`;
           ></el-table-column
         >
         <el-table-column prop="steam_id" label="SteamID" min-width="175" />
+        <el-table-column
+          :label="$t('累计击杀')"
+          min-width="110"
+          sortable
+          sort-by="total_kills"
+          ><template #default="{ row }">{{
+            stat(row.total_kills)
+          }}</template></el-table-column
+        >
+        <el-table-column
+          :label="$t('累计死亡')"
+          min-width="110"
+          sortable
+          sort-by="total_deaths"
+          ><template #default="{ row }">{{
+            stat(row.total_deaths)
+          }}</template></el-table-column
+        >
+        <el-table-column label="K/D" width="85"
+          ><template #default="{ row }">{{
+            kd(row)
+          }}</template></el-table-column
+        >
+        <el-table-column :label="$t('最近现金')" min-width="115"
+          ><template #default="{ row }">{{
+            stat(row.latest_cash)
+          }}</template></el-table-column
+        >
+        <el-table-column :label="$t('最高现金')" min-width="115"
+          ><template #default="{ row }">{{
+            stat(row.peak_cash)
+          }}</template></el-table-column
+        >
         <el-table-column
           prop="match_count"
           :label="$t('观测对局')"

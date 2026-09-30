@@ -1,0 +1,10 @@
+[Unit]
+Description=Wardogs panel update worker
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/wardogs-panel-updater --root /opt/wardogs-rcon-panel
+TimeoutStartSec=1800
+UMask=0077

@@ -75,6 +75,10 @@ All languages except Chinese are marked **AI translated** and provided for refer
 
 ## 🛠️ Deployment and checks
 
+📊 Historical players show recorded server kills, deaths, K/D, latest cash and peak cash. Repeated samples are deduplicated. Existing history is backfilled from saved snapshots; data before recording cannot be recovered. Cash is not cumulative earnings.
+
+🔄 Check and install updates from GitHub or the [Gitee mirror](https://gitee.com/gooldove/Wardogs_RCON_PANEL/releases). Background automatic installation is off by default and requires owner password confirmation plus the host updater service. Missing Releases fall back to a prebuilt SHA-256 manifest. Failed installations attempt rollback. See the deployment guide.
+
 See [deployment guide](deploy/README.en.md) for the deployment template and steps. HTTP and HTTPS deployments are supported. HTTP displays a security warning before the login page. The guide covers HTTP configuration, automatic HTTPS certificates, and migration; HTTPS is recommended. Public plain HTTP RCON requires two explicit opt-ins and sends the privileged Bearer in cleartext; prefer HTTPS or a controlled private network.
 
 ```powershell
