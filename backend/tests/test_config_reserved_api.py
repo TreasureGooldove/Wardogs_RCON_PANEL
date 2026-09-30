@@ -144,6 +144,22 @@ def put_calls(calls):
     return [call for call in calls if call.method == "PUT"]
 
 
+def test_every_config_read_fetches_current_server_text_without_writing(tmp_path):
+    app, state, calls = make_panel(tmp_path)
+    with TestClient(app, base_url=PANEL) as client:
+        login(client)
+        first = client.get("/api/server/config")
+        assert first.headers["cache-control"] == "no-store"
+        assert "ServerName=Test Server" in first.json()["text"]
+        state["text"] = "[Custom.Actual]\nActualOnly=server-change\n"
+        state["revision"] = "rev-new"
+        second = client.get("/api/server/config")
+        assert second.json()["text"] == state["text"]
+        assert second.json()["revision"] == "rev-new"
+        assert len([c for c in calls if c.url.path == "/v1/config"]) == 2
+        assert all(c.method == "GET" for c in calls)
+
+
 @pytest.mark.parametrize("operation", ["validate", "apply", "add", "remove"])
 def test_revoked_owner_session_cannot_write_after_lock_entry(tmp_path, operation):
     app, _, calls = make_panel(tmp_path)

@@ -7,7 +7,7 @@ from time import monotonic
 
 import httpx
 
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.1.2"
 REPOSITORY = "TreasureGooldove/Wardogs_RCON_PANEL"
 RELEASES_URL = f"https://github.com/{REPOSITORY}/releases"
 LATEST_API = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"

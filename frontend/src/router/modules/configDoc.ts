@@ -15,7 +15,7 @@ export default {
       path: "/config-doc/index",
       name: "ConfigDoc",
       component: () => import("@/views/config-doc/index.vue"),
-      meta: { title: "配置文件", roles: ["owner", "subuser"] }
+      meta: { title: "配置文件", roles: ["owner", "subuser"], keepAlive: false }
     }
   ]
 } satisfies RouteConfigsTable;

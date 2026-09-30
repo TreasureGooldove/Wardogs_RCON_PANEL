@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onActivated, onMounted, onUnmounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   getConfigDocument,
@@ -10,7 +10,8 @@ import {
 } from "@/api/configDoc";
 import { getApiErrorMessage } from "@/api/errors";
 import {
-  CONFIG_FIELD_GROUPS,
+  discoverConfigFieldGroups,
+  isHiddenConfigValue,
   applyConfigPreset,
   captureConfigPreset,
   readConfigField,
@@ -34,9 +35,11 @@ const presets = ref<ConfigPreset[]>([]);
 const presetName = ref("");
 const selectedPreset = ref("");
 const configDebug = ref(false);
+const observedAt = ref<string | null>(null);
+const fieldGroups = computed(() => discoverConfigFieldGroups(document.value?.text ?? ""));
 const presetStorageKey = "wardogs-config-presets-v1";
 const dirty = computed(() => document.value !== null && draft.value !== document.value.text);
-const canWrite = computed(() => document.value?.writable === true);
+const canWrite = computed(() => document.value?.writable === true && !loading.value && !saving.value);
 const diff = computed(() =>
   document.value && configDebug.value && dirty.value
     ? changedLines(document.value.text, draft.value)
@@ -135,12 +138,17 @@ async function load() {
     }
   }
   loading.value = true;
+  document.value = null;
+  draft.value = "";
+  observedAt.value = null;
   error.value = "";
   validation.value = null;
   try {
     const current = await getConfigDocument();
     document.value = current;
     draft.value = current.text;
+    observedAt.value = new Date().toLocaleString("zh-CN");
+    fullApply.value = false;
   } catch (reason) {
     error.value = getApiErrorMessage(reason);
   } finally {
@@ -226,6 +234,7 @@ async function save() {
     ElMessage.success("服务器已接受配置");
     document.value = null;
     draft.value = "";
+    saving.value = false;
     await load();
   } catch (reason) {
     error.value = getApiErrorMessage(reason);
@@ -252,6 +261,7 @@ onMounted(() => {
   window.addEventListener("wardogs-display-settings-changed", syncDebugPreference);
   void load();
 });
+onActivated(() => { void load(); });
 onUnmounted(() => {
   window.removeEventListener("storage", syncDebugPreference);
   window.removeEventListener("wardogs-display-settings-changed", syncDebugPreference);
@@ -263,22 +273,22 @@ onUnmounted(() => {
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-semibold">服务器配置</h1>
-        <p class="text-sm text-gray-500">查看、验证和编辑 Wardogs 配置文档</p>
+        <p class="text-sm text-gray-500">每次进入页面重新读取实机配置；读取失败不生成默认草稿</p>
       </div>
       <el-button :loading="loading" @click="load">重新读取</el-button>
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-card v-if="document" shadow="never">
-      <template #header>常用配置项</template>
+      <template #header>实机配置项</template>
       <p class="mb-4 text-sm text-gray-500">
-        修改后先进入草稿；检查并点击“应用到服务器”才会提交。未列出的配置行仍保留在原文中。
+        以下字段来自本次 RCON 返回的真实配置，不补充缺失项或默认值。数组与复杂配置请在下方原文编辑；修改草稿不会自动写入服务器。
       </p>
-      <div v-for="group in CONFIG_FIELD_GROUPS" :key="group.title" class="mb-5">
+      <div v-for="group in fieldGroups" :key="group.title" class="mb-5">
         <h2 class="mb-3 font-semibold">{{ group.title }}</h2>
         <div class="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
           <div v-for="field in group.fields" :key="`${field.section}|${field.key}`">
-            <label class="mb-1 block text-sm text-gray-500">{{ field.label }}</label>
+            <label class="mb-1 block text-sm text-gray-500">{{ field.label }} <span class="text-xs">（{{ field.key }}）</span></label>
             <el-switch
               v-if="field.kind === 'boolean'"
               :model-value="readConfigField(draft, field).toLowerCase() === 'true'"
@@ -289,17 +299,18 @@ onUnmounted(() => {
             />
             <el-input-number
               v-else-if="field.kind === 'number'"
-              :model-value="Number(readConfigField(draft, field) || 0)"
+              :model-value="readConfigField(draft, field) === '' ? undefined : Number(readConfigField(draft, field))"
               :min="0"
               :max="999999999"
               controls-position="right"
               :disabled="!canWrite"
               class="!w-full"
-              @change="stageField(field, String($event))"
+              @change="$event !== undefined && stageField(field, String($event))"
             />
             <el-input
               v-else
-              :model-value="readConfigField(draft, field)"
+              :model-value="isHiddenConfigValue(readConfigField(draft, field)) ? '' : readConfigField(draft, field)"
+              :placeholder="isHiddenConfigValue(readConfigField(draft, field)) ? '实机已配置，值已隐藏；不填写则保留' : '实机当前值为空'"
               :type="field.kind === 'secret' ? 'password' : 'text'"
               :show-password="field.kind === 'secret'"
               :disabled="!canWrite"
@@ -341,6 +352,7 @@ onUnmounted(() => {
       <el-empty v-else-if="!document" description="尚未读取配置文档" />
       <div v-else class="space-y-4">
         <p class="text-sm text-gray-500">
+          来源：实机 RCON /v1/config · 读取时间：{{ observedAt }}<br />
           当前版本：<span class="font-mono">{{ document.revision }}</span>
         </p>
         <el-alert

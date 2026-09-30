@@ -44,39 +44,77 @@ export const CONFIG_FIELDS = CONFIG_FIELD_GROUPS.flatMap(group => group.fields);
 export type ConfigPreset = { name: string; values: Record<string, string> };
 
 function splitDocument(text: string) {
-  const ending = text.includes("\r\n") ? "\r\n" : "\n";
-  return { lines: text.split(/\r?\n/), ending };
+  const ending = text.includes("\r\n") ? "\r\n" : text.includes("\r") ? "\r" : "\n";
+  return { lines: text.split(/\r\n|\n|\r/), ending };
 }
 
-function sectionBounds(lines: string[], section: string): [number, number] | null {
-  const start = lines.findIndex(line => line.trim().toLowerCase() === `[${section}]`.toLowerCase());
-  if (start < 0) return null;
-  let end = lines.length;
-  for (let index = start + 1; index < lines.length; index += 1) {
-    if (/^\s*\[[^\]]+\]\s*$/.test(lines[index])) {
-      end = index;
-      break;
+function fieldIndex(lines: string[], field: ConfigField): number {
+  let section = "";
+  let found = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    const header = lines[index].replace(/^\uFEFF/, "").match(/^\s*\[([^\]]+)\]\s*$/);
+    if (header) {
+      section = header[1].trim().toLowerCase();
+      continue;
+    }
+    const entry = lines[index].match(/^\s*([A-Za-z_][A-Za-z0-9_.]*)\s*=/);
+    if (section === field.section.toLowerCase() && entry?.[1].toLowerCase() === field.key.toLowerCase()) {
+      found = index;
     }
   }
-  return [start, end];
+  return found;
 }
 
-function keyIndex(lines: string[], bounds: [number, number], key: string) {
-  const expression = new RegExp(`^\\s*${key}\\s*=`);
-  for (let index = bounds[0] + 1; index < bounds[1]; index += 1) {
-    if (expression.test(lines[index])) return index;
-  }
-  return -1;
+export function hasConfigField(text: string, field: ConfigField): boolean {
+  return fieldIndex(splitDocument(text).lines, field) >= 0;
 }
 
 export function readConfigField(text: string, field: ConfigField): string {
   const { lines } = splitDocument(text);
-  const bounds = sectionBounds(lines, field.section);
-  if (!bounds) return "";
-  const index = keyIndex(lines, bounds, field.key);
+  const index = fieldIndex(lines, field);
   if (index < 0) return "";
   const raw = lines[index].slice(lines[index].indexOf("=") + 1).trim();
   return raw.startsWith('"') && raw.endsWith('"') ? raw.slice(1, -1) : raw;
+}
+
+export function isHiddenConfigValue(value: string): boolean {
+  return /^__WD_REDACTED_[A-Za-z0-9._:-]+__$/.test(value);
+}
+
+/** Discover scalar assignments from the current server document, never defaults. */
+export function discoverConfigFieldGroups(text: string): ConfigFieldGroup[] {
+  const groups = new Map<string, ConfigFieldGroup>();
+  let section = "";
+  const fields = new Map<string, ConfigField>();
+  for (const line of splitDocument(text).lines) {
+    const header = line.replace(/^\uFEFF/, "").match(/^\s*\[([^\]]+)\]\s*$/);
+    if (header) {
+      section = header[1].trim();
+      continue;
+    }
+    const entry = line.match(/^\s*([A-Za-z_][A-Za-z0-9_.]*)\s*=(.*)$/);
+    if (!section || !entry) continue;
+    const key = entry[1];
+    const raw = entry[2].trim();
+    // Arrays/operators and structured values remain in the lossless document editor.
+    if (raw.startsWith("(")) continue;
+    const known = CONFIG_FIELDS.find(field =>
+      field.section.toLowerCase() === section.toLowerCase() && field.key.toLowerCase() === key.toLowerCase()
+    );
+    const secret = /password|passwd|passphrase|secret|token|bearer|credential|api[_-]?key|private[_-]?key/i.test(key) ||
+      isHiddenConfigValue(raw);
+    const kind: ConfigField["kind"] = secret ? "secret" : /^(true|false)$/i.test(raw) ? "boolean" :
+      /^(0|[1-9][0-9]{0,8})$/.test(raw) ? "number" : "text";
+    fields.set(`${section.toLowerCase()}|${key.toLowerCase()}`, {
+      section, key, label: known?.label ?? (key.toLowerCase() === "serverpassword" ? "加入密码" : key), kind
+    });
+  }
+  for (const field of fields.values()) {
+    const id = field.section.toLowerCase();
+    if (!groups.has(id)) groups.set(id, { title: field.section, fields: [] });
+    groups.get(id)!.fields.push(field);
+  }
+  return [...groups.values()];
 }
 
 export function writeConfigField(text: string, field: ConfigField, value: string): string {
@@ -93,16 +131,14 @@ export function writeConfigField(text: string, field: ConfigField, value: string
     throw new Error("图片地址需为不含查询参数的 HTTPS URL");
   }
   const { lines, ending } = splitDocument(text);
-  const bounds = sectionBounds(lines, field.section);
-  if (!bounds) throw new Error(`配置中没有 [${field.section}] 段落`);
-  const index = keyIndex(lines, bounds, field.key);
+  const index = fieldIndex(lines, field);
+  if (index < 0) throw new Error(`服务器配置中没有 ${field.key}，不会自动新增配置项`);
   const previouslyQuoted = index >= 0 && /^\s*"/.test(lines[index].slice(lines[index].indexOf("=") + 1));
   const shouldQuote = field.kind === "url" || previouslyQuoted;
   if (shouldQuote && value.includes('"')) throw new Error("此配置值不能包含双引号");
   const encoded = shouldQuote ? `"${value}"` : value;
-  const line = `${field.key}=${encoded}`;
-  if (index >= 0) lines[index] = line;
-  else lines.splice(bounds[1], 0, line);
+  const separator = lines[index].indexOf("=") + 1;
+  lines[index] = `${lines[index].slice(0, separator)}${encoded}`;
   return lines.join(ending);
 }
 
@@ -111,7 +147,7 @@ export function captureConfigPreset(name: string, text: string): ConfigPreset {
   if (!cleanName || cleanName.length > 40) throw new Error("预设名称需为 1–40 字符");
   const values: Record<string, string> = {};
   for (const field of CONFIG_FIELDS) {
-    if (field.kind === "secret") continue;
+    if (field.kind === "secret" || !hasConfigField(text, field)) continue;
     values[`${field.section}|${field.key}`] = readConfigField(text, field);
   }
   return { name: cleanName, values };
@@ -120,7 +156,7 @@ export function captureConfigPreset(name: string, text: string): ConfigPreset {
 export function applyConfigPreset(text: string, preset: ConfigPreset): string {
   let result = text;
   for (const field of CONFIG_FIELDS) {
-    if (field.kind === "secret") continue;
+    if (field.kind === "secret" || !hasConfigField(text, field)) continue;
     const value = preset.values[`${field.section}|${field.key}`];
     if (typeof value === "string") result = writeConfigField(result, field, value);
   }
