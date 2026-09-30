@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import asyncio
+import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -90,6 +91,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        if settings.public_origin.startswith("http://"):
+            logging.getLogger(__name__).warning("您未部署在https版本 请留意数据安全")
         history_task = (
             asyncio.create_task(history_collector.run()) if settings.history_enabled else None
         )

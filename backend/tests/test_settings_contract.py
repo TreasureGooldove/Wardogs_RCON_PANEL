@@ -69,7 +69,7 @@ def test_settings_auth_origin_encryption_and_hot_switch(tmp_path):
         empty = client.get("/api/server/settings").json()
         assert empty == {
             "name": "Wardogs 服务器", "origin": "", "hasBearer": False,
-            "allowPublicHttp": False, "configured": False, "updatedAt": None,
+            "allowPublicHttp": False, "publicHttpRconAllowed": False, "configured": False, "updatedAt": None,
         }
         for headers in ({}, {"Origin": "https://other.example"}):
             denied = client.put("/api/server/settings", json=payload(), headers=headers)

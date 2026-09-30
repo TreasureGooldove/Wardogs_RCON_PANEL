@@ -95,6 +95,7 @@ class RconRuntime:
                 "origin": self._record.origin,
                 "hasBearer": bool(self._record.bearer_ciphertext),
                 "allowPublicHttp": self._record.allow_public_http,
+                "publicHttpRconAllowed": self.settings.allow_public_http_rcon,
                 "configured": self.client.target is not None,
                 "updatedAt": self._record.updated_at.isoformat().replace("+00:00", "Z"),
             }
@@ -104,6 +105,7 @@ class RconRuntime:
             "origin": target.origin if target else "",
             "hasBearer": target is not None,
             "allowPublicHttp": target.allow_public_http if target else False,
+            "publicHttpRconAllowed": self.settings.allow_public_http_rcon,
             "configured": self.client.target is not None,
             "updatedAt": None,
         }

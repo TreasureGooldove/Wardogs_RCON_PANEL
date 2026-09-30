@@ -195,6 +195,14 @@ onMounted(load);
             允许公网 HTTP RCON（高风险；还需服务器部署策略允许）
           </el-checkbox>
         </el-form-item>
+        <el-alert
+          v-if="httpOrigin && current && !current.publicHttpRconAllowed"
+          class="mb-4"
+          type="info"
+          :closable="false"
+          title="公网 HTTP RCON 部署门禁尚未开启"
+          description="如已接受明文风险，请在 deploy/panel.env 设置 PANEL_ALLOW_PUBLIC_HTTP_RCON=true，再运行 docker compose -f deploy/compose.yaml up -d --force-recreate panel，并勾选上方允许公网 HTTP RCON。面板使用 HTTPS 不代表 RCON 连接也已加密。详见仓库 deploy/README.md。"
+        />
 
         <div class="flex flex-wrap items-center justify-between gap-3">
           <span class="text-xs text-gray-500">

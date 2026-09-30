@@ -102,11 +102,11 @@ class PanelSettings:
     history_enabled: bool = False
 
     def __post_init__(self) -> None:
-        scheme, host = _valid_origin(self.public_origin, allow_http=True)
+        scheme, _host = _valid_origin(self.public_origin, allow_http=True)
         if scheme == "https" and not self.session_secure:
             raise ValueError("HTTPS panel sessions require Secure cookies")
-        if scheme == "http" and (self.session_secure or not _is_private_http_host(host)):
-            raise ValueError("HTTP panel origin is only for local development")
+        if scheme == "http" and self.session_secure:
+            raise ValueError("HTTP panel sessions cannot use Secure cookies; use HTTPS or set PANEL_SESSION_SECURE=false")
 
 
 def _bool_env(value: str, name: str) -> bool:
@@ -154,10 +154,11 @@ def load_settings(environ: Mapping[str, str] | None = None) -> PanelSettings:
         except (TypeError, ValueError):
             # An incomplete or unsafe target must never trigger a network call.
             rcon_target = None
+    public_origin = values.get("PANEL_PUBLIC_ORIGIN", "http://127.0.0.1:8000")
     return PanelSettings(
         db_path=Path(values.get("PANEL_DB_PATH", "./data/panel.sqlite3")),
-        public_origin=values.get("PANEL_PUBLIC_ORIGIN", "http://127.0.0.1:8000"),
-        session_secure=_bool_env(values.get("PANEL_SESSION_SECURE", "false"), "PANEL_SESSION_SECURE"),
+        public_origin=public_origin,
+        session_secure=_bool_env(values.get("PANEL_SESSION_SECURE", "true" if public_origin.startswith("https://") else "false"), "PANEL_SESSION_SECURE"),
         rcon_target=rcon_target,
         config_key=values.get("PANEL_CONFIG_KEY") or None,
         allow_public_http_rcon=allow_public_http,

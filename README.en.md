@@ -66,7 +66,7 @@ Set a persistent Fernet `PANEL_CONFIG_KEY` in the backend environment before sav
 
 ## 🛠️ Deployment and checks
 
-See [deploy/README.md](deploy/README.md) for the deployment template and steps. Configure your actual HTTPS host, certificate, persistent data directory, and environment variables. Public plain HTTP RCON requires two explicit opt-ins and sends the privileged Bearer in cleartext; prefer HTTPS or a controlled private network.
+See [deployment guide](deploy/README.en.md) for the deployment template and steps. HTTP and HTTPS deployments are supported. HTTP displays a security warning before the login page. The guide covers HTTP configuration, automatic HTTPS certificates, and migration; HTTPS is recommended. Public plain HTTP RCON requires two explicit opt-ins and sends the privileged Bearer in cleartext; prefer HTTPS or a controlled private network.
 
 ```powershell
 Set-Location backend

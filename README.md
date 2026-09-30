@@ -66,7 +66,7 @@ pnpm dev
 
 ## 🛠️ 部署与检查
 
-部署模板和步骤见 [deploy/README.md](deploy/README.md)。在部署环境配置真实 HTTPS 域名、证书、持久数据目录和环境变量。公网明文 HTTP RCON 需要显式启用双重门禁，并会明文传输具有管理权限的 Bearer，优先使用 HTTPS 或受控私网。
+部署模板和步骤见 [deploy/README.md](deploy/README.md)。支持 HTTP 与 HTTPS 部署；HTTP 访问在进入登录页面前显示安全提醒。教程包含 HTTP 配置、HTTPS 自动证书及迁移步骤，建议使用 HTTPS。公网明文 HTTP RCON 需要显式启用双重门禁，并会明文传输具有管理权限的 Bearer，优先使用 HTTPS 或受控私网。
 
 ```powershell
 Set-Location backend

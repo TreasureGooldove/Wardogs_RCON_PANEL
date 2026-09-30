@@ -5,6 +5,7 @@ export interface ServerSettings {
   origin: string;
   hasBearer: boolean;
   allowPublicHttp: boolean;
+  publicHttpRconAllowed: boolean;
   configured: boolean;
   updatedAt: string | null;
 }
