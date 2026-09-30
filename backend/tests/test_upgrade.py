@@ -65,6 +65,9 @@ def test_untrusted_manifest_cannot_install_and_download_redirect_is_rejected():
             await checker.close()
     asyncio.run(scenario())
     assert not trusted_url('https://gitee.com/other/repo/a.zip', 'gitee')
+    assert trusted_url('https://foruda.gitee.com/attachments/package.zip?signature=example', 'gitee', redirect=True)
+    assert trusted_url('https://raw.giteeusercontent.com/gooldove/Wardogs_RCON_PANEL/raw/updates/latest.json?signature=example', 'gitee', redirect=True)
+    assert not trusted_url('https://foruda.gitee.com.evil.invalid/a.zip', 'gitee', redirect=True)
 
 
 def test_archive_limits_scope_and_version(tmp_path):

@@ -37,7 +37,7 @@ def release_manifest(source, version):
                     return {'version': version, 'url': package['browser_download_url'], 'sha256': digest[7:]}
         except Exception:
             pass
-    return json.loads(fetch(MANIFESTS[source], 32768))
+    return json.loads(fetch(MANIFESTS[source], 32768, source))
 
 
 def trusted(url, source, redirect=False):
@@ -46,7 +46,7 @@ def trusted(url, source, redirect=False):
         return False
     if source == 'github':
         return (p.hostname == 'github.com' and p.path.startswith('/' + REPOS[source] + '/releases/download/') and not p.query) or (redirect and p.hostname == 'release-assets.githubusercontent.com')
-    return (p.hostname == 'gitee.com' and p.path.startswith('/' + REPOS[source] + '/') and not p.query) or (redirect and p.hostname in ('gitee.com', 'giteeusercontent.com', 'files.gitee.com'))
+    return (p.hostname == 'gitee.com' and p.path.startswith('/' + REPOS[source] + '/') and not p.query) or (redirect and p.hostname in ('gitee.com', 'giteeusercontent.com', 'files.gitee.com', 'foruda.gitee.com', 'raw.giteeusercontent.com'))
 
 
 def fetch(url, limit, source=None):

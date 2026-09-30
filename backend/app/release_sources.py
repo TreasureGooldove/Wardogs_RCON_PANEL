@@ -7,7 +7,7 @@ from time import monotonic
 from urllib.parse import urlsplit
 import httpx
 
-APP_VERSION = "0.3.2"
+APP_VERSION = "0.3.3"
 REPOSITORY = "TreasureGooldove/Wardogs_RCON_PANEL"
 GITEE_REPOSITORY = "gooldove/Wardogs_RCON_PANEL"
 RELEASES_URL = f"https://github.com/{REPOSITORY}/releases"
@@ -41,7 +41,7 @@ def trusted_url(url, source, *, redirect=False):
                 or (redirect and p.hostname == "release-assets.githubusercontent.com"))
     if source == "gitee":
         return ((p.hostname == "gitee.com" and p.path.startswith(f"/{GITEE_REPOSITORY}/") and not p.query)
-                or (redirect and p.hostname in {"gitee.com", "giteeusercontent.com", "files.gitee.com"}))
+                or (redirect and p.hostname in {"gitee.com", "giteeusercontent.com", "files.gitee.com", "foruda.gitee.com", "raw.giteeusercontent.com"}))
     return False
 
 
@@ -116,7 +116,7 @@ class ReleaseChecker:
             pass
         if candidate is None or not candidate.get("sha256"):
             try:
-                manifest = json.loads(await self.fetch(config["manifest"], 32768))
+                manifest = json.loads(await self.fetch(config["manifest"], 32768, source=source))
                 version = manifest.get("version")
                 if (version_tuple(version) and trusted_url(manifest.get("url"), source)
                         and re.fullmatch(r"[0-9a-f]{64}", manifest.get("sha256", ""))
