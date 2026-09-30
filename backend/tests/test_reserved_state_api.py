@@ -39,6 +39,8 @@ def make_panel(tmp_path, *, configured, live, apply_live=False, fail_post_read=N
     def handler(request):
         calls.append((request.method, request.url.path))
         path = request.url.path
+        if path == "/v1/bans":
+            return httpx.Response(200, json={"bans": []})
         if path == "/v1/capabilities":
             return httpx.Response(200, json={"routes": [
                 "GET /v1/config", "GET /v1/reserved-slots", "PUT /v1/config",

@@ -1,6 +1,12 @@
 import { http } from "@/utils/http";
 
 export interface ConfigDocument {
+  consistency: {
+    ok: boolean;
+    reason: string | null;
+    configuredBannedCount: number;
+    liveBannedCount: number | null;
+  };
   revision: string;
   writable: boolean;
   text: string;
@@ -21,13 +27,17 @@ export interface ConfigWriteResult extends ConfigValidation {
 }
 
 export interface ReservedSlots {
+  writeIssue?: string;
   reservedSlots: string[];
   configuredReservedSlots: string[];
   pendingRestart: boolean | null;
   revision: string;
   writable: boolean;
   targetRevision: string;
-  metadata: Record<string, { reason: string; expiresAt: string | null; status: string }>;
+  metadata: Record<
+    string,
+    { reason: string; expiresAt: string | null; status: string }
+  >;
 }
 
 export const getConfigDocument = () =>

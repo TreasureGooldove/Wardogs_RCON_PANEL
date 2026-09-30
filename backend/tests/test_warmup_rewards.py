@@ -32,6 +32,8 @@ def make_app(tmp_path, *, timeout=False):
 
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if path == "/v1/bans":
+            return httpx.Response(200, json={"bans": []})
         if path == "/v1/capabilities":
             return httpx.Response(200, json={"routes": [
                 "GET /v1/config", "PUT /v1/config",

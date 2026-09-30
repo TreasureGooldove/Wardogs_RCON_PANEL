@@ -29,6 +29,7 @@ _ERRORS: dict[str, tuple[int, str]] = {
     "settings_public_http_disabled": (403, "部署未允许公网 HTTP RCON"),
     "stale_server_target": (409, "服务器设置已变化，请刷新玩家名单后重试"),
     "config_conflict": (409, "服务器配置版本已变化，请刷新后重试"),
+    "config_interface_inconsistent": (503, "官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入"),
     "invalid_config": (400, "服务器配置文档无效"),
     "reserved_exists": (409, "该玩家已在预留位名单中"),
     "reserved_missing": (404, "该玩家不在预留位名单中"),

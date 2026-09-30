@@ -7,7 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from app.api.auth import require_admin
 from app.errors import PanelError
-from app.rcon.config_doc import read_config, send_config, valid_document_text, valid_revision
+from app.rcon.config_doc import (config_consistency, require_consistent_config,
+                                read_config, send_config, valid_document_text, valid_revision)
 from app.rcon.config_redaction import (
     public_config_document,
     public_config_result,
@@ -51,7 +52,10 @@ async def get_config(
         spec = route_for(RouteName.CONFIG)
         await runtime.capabilities.require_advertised(spec.method, spec.path)
         document = await read_config(runtime.client)
-        return {**public_config_document(document), "targetRevision": runtime.target_revision}
+        consistency = await config_consistency(runtime.client, document)
+        return {**public_config_document(document),
+                "writable": document["writable"] and consistency["ok"],
+                "consistency": consistency, "targetRevision": runtime.target_revision}
 
 
 @router.post("/validate")
@@ -72,6 +76,7 @@ async def validate_config(
         read_spec = route_for(RouteName.CONFIG)
         await runtime.capabilities.require_advertised(read_spec.method, read_spec.path)
         current = await read_config(runtime.client)
+        await require_consistent_config(runtime.client, current)
         text = restore_config(payload.text, current["text"], current["revision"])
         result = await send_config(runtime.client, valid_document_text(text), apply=False)
         return public_config_result(result, payload.text)
@@ -96,6 +101,7 @@ async def apply_config(
         read_spec = route_for(RouteName.CONFIG)
         await runtime.capabilities.require_advertised(read_spec.method, read_spec.path)
         current = await read_config(runtime.client)
+        await require_consistent_config(runtime.client, current)
         revision = valid_revision(payload.revision)
         if current["revision"] != revision:
             raise PanelError("config_conflict")

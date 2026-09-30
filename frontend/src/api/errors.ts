@@ -21,6 +21,7 @@ export type ApiErrorCode =
   | "settings_key_unavailable"
   | "settings_public_http_disabled"
   | "write_disabled"
+  | "config_interface_inconsistent"
   | "invalid_moderation_target"
   | "player_not_online"
   | "invalid_moderation_reason"
@@ -58,6 +59,8 @@ const messages: Record<ApiErrorCode, string> = {
   settings_public_http_disabled:
     "服务器部署策略未允许公网 HTTP RCON，请先配置 HTTPS 或私网通道",
   write_disabled: "服务器管理操作尚未启用",
+  config_interface_inconsistent:
+    "官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入",
   invalid_moderation_target: "玩家 SteamID 无效，请刷新名单后重试",
   player_not_online: "该玩家已不在线，请刷新玩家名单后重试",
   invalid_moderation_reason: "操作原因无效，请填写 1–200 个字符",

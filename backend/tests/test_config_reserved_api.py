@@ -74,12 +74,14 @@ def test_reserved_parser_honors_clear_add_remove_and_repeated_sections():
 
 
 def make_panel(tmp_path, *, writable=True, advertised=True, put_result="ok"):
-    state = {"revision": "rev-1", "text": TEXT, "reserved": [STEAM_A]}
+    state = {"revision": "rev-1", "text": TEXT, "reserved": [STEAM_A], "bans": []}
     calls: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request)
         path = request.url.path
+        if path == "/v1/bans":
+            return httpx.Response(200, json={"bans": [{"steamId": item} for item in state["bans"]]})
         if path == "/v1/capabilities":
             routes = ["GET /v1/config", "GET /v1/reserved-slots", "POST /v1/config/validate"]
             if advertised:
@@ -395,3 +397,46 @@ def test_capability_or_writable_gate_denies_config_writes(tmp_path):
             )
             assert response.status_code in {403, 501}
             assert not put_calls(calls)
+
+
+def test_missing_config_ban_array_disables_feature_and_all_config_puts(tmp_path):
+    app, state, calls = make_panel(tmp_path)
+    state['bans'] = [STEAM_B, '00000000000000000']
+    with TestClient(app, base_url=PANEL) as client:
+        login(client)
+        document = client.get('/api/server/config').json()
+        assert document['writable'] is False
+        assert document['consistency'] == {
+            'ok': False, 'reason': 'ban_list_mismatch',
+            'configuredBannedCount': 0, 'liveBannedCount': 1,
+        }
+        payload = {'text': document['text'], 'targetRevision': document['targetRevision']}
+        validate = client.post('/api/server/config/validate', json=payload, headers={'Origin': PANEL})
+        assert validate.status_code == 503
+        assert validate.json()['code'] == 'config_interface_inconsistent'
+        applied = client.put('/api/server/config', json={**payload, 'revision': document['revision'],
+            'password': 'correct horse battery staple'}, headers={'Origin': PANEL})
+        assert applied.status_code == 503
+        reserved = client.post('/api/server/reserved-slots', json={
+            'steamId': STEAM_B, 'revision': document['revision'],
+            'targetRevision': document['targetRevision']}, headers={'Origin': PANEL})
+        assert reserved.status_code == 503
+        assert reserved.json()['code'] == 'config_interface_inconsistent'
+        assert not put_calls(calls)
+        assert not [c for c in calls if c.url.path == '/v1/config/validate']
+
+
+def test_duplicate_config_bans_match_unique_live_list_and_keep_original_lines(tmp_path):
+    app, state, calls = make_panel(tmp_path)
+    state['bans'] = [STEAM_B]
+    state['text'] = state['text'].replace('ServerName=Test Server',
+        f'.DefaultBannedPlayerIds={STEAM_B}\r\n+DefaultBannedPlayerIds={STEAM_B}\r\nServerName=Test Server')
+    with TestClient(app, base_url=PANEL) as client:
+        login(client)
+        document = client.get('/api/server/config').json()
+        assert document['writable'] is True
+        assert document['consistency']['ok'] is True
+        assert document['consistency']['configuredBannedCount'] == 1
+        assert f'.DefaultBannedPlayerIds={STEAM_B}' in document['text']
+        assert f'+DefaultBannedPlayerIds={STEAM_B}' in document['text']
+        assert all(c.method == 'GET' for c in calls)

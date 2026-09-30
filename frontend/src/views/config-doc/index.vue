@@ -12,6 +12,7 @@ import {
 import { getApiErrorMessage } from "@/api/errors";
 import {
   discoverConfigFieldGroups,
+  configValueLabel,
   isHiddenConfigValue,
   applyConfigPreset,
   captureConfigPreset,
@@ -45,7 +46,11 @@ const dirty = computed(
   () => document.value !== null && draft.value !== document.value.text
 );
 const canWrite = computed(
-  () => document.value?.writable === true && !loading.value && !saving.value
+  () =>
+    document.value?.writable === true &&
+    document.value.consistency?.ok === true &&
+    !loading.value &&
+    !saving.value
 );
 const diff = computed(() =>
   document.value && configDebug.value && dirty.value
@@ -188,7 +193,7 @@ async function load() {
 
 async function validate() {
   const current = document.value;
-  if (!current || validating.value || saving.value) return;
+  if (!current || !canWrite.value || validating.value || saving.value) return;
   validating.value = true;
   error.value = "";
   try {
@@ -289,7 +294,7 @@ async function save() {
 }
 
 function downloadDraft() {
-  if (!document.value) return;
+  if (!document.value || !canWrite.value) return;
   const blob = new Blob([draft.value], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = window.document.createElement("a");
@@ -336,7 +341,28 @@ onUnmounted(() => {
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-card v-if="document" shadow="never">
+    <el-alert
+      v-if="document && !document.consistency?.ok"
+      :title="
+        $t(
+          '官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入'
+        )
+      "
+      type="error"
+      :closable="false"
+      show-icon
+    >
+      {{
+        $t(
+          "配置文本封禁人数：{p0}；实时封禁人数：{p1}。下方仅用于排查，不能编辑、验证、下载或应用。",
+          {
+            p0: document.consistency?.configuredBannedCount ?? "—",
+            p1: document.consistency?.liveBannedCount ?? "—"
+          }
+        )
+      }}
+    </el-alert>
+    <el-card v-if="document?.consistency?.ok" shadow="never">
       <template #header>{{ $t("实机配置项") }}</template>
       <p class="mb-4 text-sm text-gray-500">
         {{
@@ -345,8 +371,11 @@ onUnmounted(() => {
           )
         }}
       </p>
-      <div v-for="group in fieldGroups" :key="group.title" class="mb-5">
+      <div v-for="group in fieldGroups" :key="group.section" class="mb-5">
         <h2 class="mb-3 font-semibold">{{ $t(group.title) }}</h2>
+        <p class="mb-3 break-all font-mono text-xs text-gray-500">
+          {{ group.section }}
+        </p>
         <div
           class="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 xl:grid-cols-3"
         >
@@ -402,6 +431,12 @@ onUnmounted(() => {
               autocomplete="off"
               @change="stageField(field, $event)"
             />
+            <p
+              v-if="configValueLabel(field, readConfigField(draft, field))"
+              class="mt-1 text-xs text-gray-500"
+            >
+              {{ $t(configValueLabel(field, readConfigField(draft, field))) }}
+            </p>
           </div>
         </div>
       </div>
@@ -476,6 +511,24 @@ onUnmounted(() => {
         <el-alert
           :title="
             $t(
+              '这里是服务器 RCON 返回的配置视图，不是生成模板；磁盘文件的注释、空行或尚未生效的修改可能不同。原文键名和枚举值保留，中文说明不会写入配置。'
+            )
+          "
+          type="info"
+          :closable="false"
+        />
+        <el-alert
+          :title="
+            $t(
+              'Password 的 __WD_REDACTED_…__ 是保留实机密码的脱敏占位符，不是服务器密码。应用时由后端还原原值，请勿将带占位符的草稿直接覆盖磁盘配置。'
+            )
+          "
+          type="info"
+          :closable="false"
+        />
+        <el-alert
+          :title="
+            $t(
               '服务器已有的敏感值已遮蔽，提交时需匹配当前配置版本。若您填入新密码或密钥，下载的草稿会包含新值，请妥善保存。'
             )
           "
@@ -493,10 +546,13 @@ onUnmounted(() => {
         />
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap gap-2">
-            <el-button :loading="validating" @click="validate">{{
-              $t("验证草稿")
-            }}</el-button>
-            <el-button @click="downloadDraft">{{
+            <el-button
+              :disabled="!canWrite"
+              :loading="validating"
+              @click="validate"
+              >{{ $t("验证草稿") }}</el-button
+            >
+            <el-button :disabled="!canWrite" @click="downloadDraft">{{
               $t("下载草稿 .ini")
             }}</el-button>
             <el-button :disabled="!dirty" @click="draft = document.text">{{

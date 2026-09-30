@@ -369,6 +369,17 @@ onBeforeUnmount(stopWarmupPolling);
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
+    <el-alert
+      v-if="snapshot?.writeIssue === 'config_interface_inconsistent'"
+      :title="
+        $t(
+          '官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入'
+        )
+      "
+      type="error"
+      :closable="false"
+      show-icon
+    />
     <el-card v-if="isOwner" shadow="never" v-loading="warmupLoading">
       <template #header>
         <div class="flex items-center justify-between gap-3">

@@ -216,6 +216,41 @@ async def read_config(client: RconClient) -> dict[str, Any]:
     return _config_response(await client.request(RouteName.CONFIG))
 
 
+async def config_consistency(client: RconClient, document: dict[str, Any]) -> dict[str, Any]:
+    """Cross-check the config ban array against the independent live ban route.
+
+    Never synthesize missing lines: a mismatched or unverifiable document is
+    diagnostic-only and cannot safely be used for a whole-document PUT.
+    """
+    configured = set(banned_ids_from_text(document["text"]))
+    result = {"ok": False, "reason": "verification_unavailable",
+              "configuredBannedCount": len(configured - {"00000000000000000"}),
+              "liveBannedCount": None}
+    try:
+        raw = await client.request(RouteName.BANS)
+        if not isinstance(raw, dict) or not isinstance(raw.get("bans"), list):
+            return result
+        live: set[str] = set()
+        for item in raw["bans"]:
+            if not isinstance(item, dict):
+                return result
+            steam_id = item.get("steamId")
+            if not isinstance(steam_id, str) or _CONFIG_ID.fullmatch(steam_id) is None:
+                return result
+            live.add(steam_id)
+        result.update(ok=configured == live,
+                      reason=None if configured == live else "ban_list_mismatch",
+                      liveBannedCount=len(live - {"00000000000000000"}))
+    except PanelError:
+        pass
+    return result
+
+
+async def require_consistent_config(client: RconClient, document: dict[str, Any]) -> None:
+    if not (await config_consistency(client, document))["ok"]:
+        raise PanelError("config_interface_inconsistent")
+
+
 async def read_reserved(client: RconClient) -> list[str]:
     raw = await client.request(RouteName.RESERVED_SLOTS)
     if not isinstance(raw, dict) or not isinstance(raw.get("reservedSlots"), list):
@@ -242,6 +277,10 @@ async def send_config(
     text = valid_document_text(text)
     if apply:
         revision = valid_revision(revision)
+        current = await read_config(client)
+        if current["revision"] != revision:
+            raise PanelError("config_conflict")
+        await require_consistent_config(client, current)
         spec = write_route_for(WriteName.CONFIG_APPLY)
     else:
         spec = write_route_for(WriteName.CONFIG_VALIDATE)
