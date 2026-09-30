@@ -17,7 +17,12 @@ const samples = ref<Sample[]>([]);
 watch(
   () => props.observedAt,
   observedAt => {
-    if (!observedAt || !props.players || samples.value.at(-1)?.observedAt === observedAt) return;
+    if (
+      !observedAt ||
+      !props.players ||
+      samples.value.at(-1)?.observedAt === observedAt
+    )
+      return;
     const cash: Record<FactionCode, number> = { BLU: 0, RED: 0, GRN: 0 };
     for (const player of props.players) {
       const faction = normalizeFaction(player.faction);
@@ -29,7 +34,12 @@ watch(
 );
 
 const ceiling = computed(() =>
-  Math.max(1, ...samples.value.flatMap(sample => FACTIONS.map(faction => sample.cash[faction.code])))
+  Math.max(
+    1,
+    ...samples.value.flatMap(sample =>
+      FACTIONS.map(faction => sample.cash[faction.code])
+    )
+  )
 );
 const current = computed(() => samples.value.at(-1)?.cash ?? null);
 
@@ -37,7 +47,10 @@ function points(faction: FactionCode) {
   if (!samples.value.length) return "";
   return samples.value
     .map((sample, index) => {
-      const x = samples.value.length === 1 ? 0 : (index / (samples.value.length - 1)) * 600;
+      const x =
+        samples.value.length === 1
+          ? 0
+          : (index / (samples.value.length - 1)) * 600;
       const y = 140 - (sample.cash[faction] / ceiling.value) * 130;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
@@ -47,12 +60,24 @@ function points(faction: FactionCode) {
 
 <template>
   <div class="space-y-3">
-    <p class="text-xs text-gray-500">页面打开期间每次获取玩家名单时采样；刷新页面后重新开始</p>
-    <el-empty v-if="samples.length === 0" description="等待玩家现金数据" />
+    <p class="text-xs text-gray-500">
+      {{ $t("页面打开期间每次获取玩家名单时采样；刷新页面后重新开始") }}
+    </p>
+    <el-empty
+      v-if="samples.length === 0"
+      :description="$t('等待玩家现金数据')"
+    />
     <template v-else>
       <div class="flex flex-wrap gap-4 text-sm">
-        <div v-for="faction in FACTIONS" :key="faction.code" class="flex items-center gap-2">
-          <span class="h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: faction.color }" />
+        <div
+          v-for="faction in FACTIONS"
+          :key="faction.code"
+          class="flex items-center gap-2"
+        >
+          <span
+            class="h-2.5 w-2.5 rounded-full"
+            :style="{ backgroundColor: faction.color }"
+          />
           <span :style="{ color: faction.color }">{{ faction.name }}</span>
           <strong>{{ current?.[faction.code].toLocaleString() ?? "—" }}</strong>
         </div>
@@ -62,10 +87,22 @@ function points(faction: FactionCode) {
         preserveAspectRatio="none"
         class="h-44 w-full rounded border border-[var(--el-border-color-light)] bg-[var(--el-fill-color-blank)]"
         role="img"
-        aria-label="三阵营现金总量趋势"
+        :aria-label="$t('三阵营现金总量趋势')"
       >
-        <line x1="0" y1="140" x2="600" y2="140" stroke="var(--el-border-color)" />
-        <line x1="0" y1="75" x2="600" y2="75" stroke="var(--el-border-color-lighter)" />
+        <line
+          x1="0"
+          y1="140"
+          x2="600"
+          y2="140"
+          stroke="var(--el-border-color)"
+        />
+        <line
+          x1="0"
+          y1="75"
+          x2="600"
+          y2="75"
+          stroke="var(--el-border-color-lighter)"
+        />
         <polyline
           v-for="faction in FACTIONS"
           :key="faction.code"
@@ -76,7 +113,9 @@ function points(faction: FactionCode) {
           vector-effect="non-scaling-stroke"
         />
       </svg>
-      <p class="text-right text-xs text-gray-500">最高刻度：{{ ceiling.toLocaleString() }}</p>
+      <p class="text-right text-xs text-gray-500">
+        {{ $t("最高刻度：") }}{{ ceiling.toLocaleString() }}
+      </p>
     </template>
   </div>
 </template>

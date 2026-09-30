@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { getApiErrorMessage } from "@/api/errors";
@@ -79,26 +80,30 @@ async function save() {
   const origin = normalizeOrigin(form.origin);
   const bearer = form.bearer;
   if (!name || name.length > 64) {
-    ElMessage.error("服务器名称需为 1–64 个字符");
+    ElMessage.error(t("服务器名称需为 1–64 个字符"));
     return;
   }
   if (!origin) {
-    ElMessage.error("请输入不含路径、账号或参数的 HTTP(S) RCON 地址");
+    ElMessage.error(t("请输入不含路径、账号或参数的 HTTP(S) RCON 地址"));
     return;
   }
   if ((!current.value.hasBearer || changedOrigin.value) && !bearer.trim()) {
-    ElMessage.error("首次配置或更改 RCON 地址时，请重新填写 RCON 密码（Bearer 密钥）");
+    ElMessage.error(
+      t("首次配置或更改 RCON 地址时，请重新填写 RCON 密码（Bearer 密钥）")
+    );
     return;
   }
   if (origin.startsWith("http://") && form.allowPublicHttp) {
     try {
       await ElMessageBox.confirm(
-        "公网 HTTP 会明文传输具备踢出和永久封禁权限的 Bearer 密钥。只有已评估风险且服务器部署策略允许时才能保存。是否继续？",
-        "确认明文 RCON 风险",
+        t(
+          "公网 HTTP 会明文传输具备踢出和永久封禁权限的 Bearer 密钥。只有已评估风险且服务器部署策略允许时才能保存。是否继续？"
+        ),
+        t("确认明文 RCON 风险"),
         {
           type: "warning",
-          confirmButtonText: "确认保存",
-          cancelButtonText: "取消"
+          confirmButtonText: t("确认保存"),
+          cancelButtonText: t("取消")
         }
       );
     } catch {
@@ -119,7 +124,7 @@ async function save() {
     await updateServerSettings(update);
     form.bearer = "";
     applyCurrent(await getServerSettings());
-    ElMessage.success("服务器设置已保存");
+    ElMessage.success(t("服务器设置已保存"));
   } catch (reason) {
     error.value = getApiErrorMessage(reason);
   } finally {
@@ -133,52 +138,54 @@ onMounted(load);
 <template>
   <div class="p-5 space-y-5">
     <div>
-      <h1 class="text-2xl font-semibold">服务器设置</h1>
-      <p class="text-sm text-gray-500">管理一台 Wardogs 服务器的 RCON 连接</p>
+      <h1 class="text-2xl font-semibold">{{ $t("服务器设置") }}</h1>
+      <p class="text-sm text-gray-500">
+        {{ $t("管理一台 Wardogs 服务器的 RCON 连接") }}
+      </p>
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-card v-loading="loading" shadow="never" class="max-w-3xl">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <span>连接配置</span>
+          <span>{{ $t("连接配置") }}</span>
           <el-tag :type="current?.configured ? 'success' : 'warning'">
-            {{ current?.configured ? "已配置" : "未配置" }}
+            {{ current?.configured ? $t("已配置") : $t("未配置") }}
           </el-tag>
         </div>
       </template>
 
       <el-form label-position="top" @submit.prevent="save">
-        <el-form-item label="服务器名称">
+        <el-form-item :label="$t('服务器名称')">
           <el-input
             v-model="form.name"
             maxlength="64"
             show-word-limit
-            placeholder="例如：Wardogs 主服"
+            :placeholder="$t('例如：Wardogs 主服')"
           />
         </el-form-item>
-        <el-form-item label="RCON 地址">
+        <el-form-item :label="$t('RCON 地址')">
           <el-input
             v-model="form.origin"
-            placeholder="https://rcon.example.com 或 http://主机:端口"
+            :placeholder="$t('https://rcon.example.com 或 http://主机:端口')"
             autocomplete="off"
           />
           <div class="mt-1 text-xs text-gray-500">
-            只填协议、主机和端口，不包含 API 路径。
+            {{ $t("只填协议、主机和端口，不包含 API 路径。") }}
           </div>
         </el-form-item>
-        <el-form-item label="RCON 密码（Bearer 密钥）">
+        <el-form-item :label="$t('RCON 密码（Bearer 密钥）')">
           <el-input
             v-model="form.bearer"
             type="password"
             autocomplete="new-password"
-            placeholder="留空则保留现有 RCON 密码"
+            :placeholder="$t('留空则保留现有 RCON 密码')"
           />
           <div class="mt-1 text-xs text-gray-500">
             {{
               current?.hasBearer
-                ? "RCON 密码已保存，不会回显；修改地址时需要重新填写。"
-                : "尚未保存 RCON 密码，请填写。"
+                ? $t("RCON 密码已保存，不会回显；修改地址时需要重新填写。")
+                : $t("尚未保存 RCON 密码，请填写。")
             }}
           </div>
         </el-form-item>
@@ -188,11 +195,15 @@ onMounted(load);
           class="mb-4"
           type="warning"
           :closable="false"
-          title="HTTP 不加密：公网传输会暴露具备踢出和永久封禁权限的 Bearer 密钥。建议先为 RCON 配置 HTTPS 或私网通道。"
+          :title="
+            $t(
+              'HTTP 不加密：公网传输会暴露具备踢出和永久封禁权限的 Bearer 密钥。建议先为 RCON 配置 HTTPS 或私网通道。'
+            )
+          "
         />
         <el-form-item>
           <el-checkbox v-model="form.allowPublicHttp" :disabled="!httpOrigin">
-            允许公网 HTTP RCON（高风险；还需服务器部署策略允许）
+            {{ $t("允许公网 HTTP RCON（高风险；还需服务器部署策略允许）") }}
           </el-checkbox>
         </el-form-item>
         <el-alert
@@ -200,13 +211,18 @@ onMounted(load);
           class="mb-4"
           type="info"
           :closable="false"
-          title="公网 HTTP RCON 部署门禁尚未开启"
-          description="如已接受明文风险，请在 deploy/panel.env 设置 PANEL_ALLOW_PUBLIC_HTTP_RCON=true，再运行 docker compose -f deploy/compose.yaml up -d --force-recreate panel，并勾选上方允许公网 HTTP RCON。面板使用 HTTPS 不代表 RCON 连接也已加密。详见仓库 deploy/README.md。"
+          :title="$t('公网 HTTP RCON 部署门禁尚未开启')"
+          :description="
+            $t(
+              '如已接受明文风险，请在 deploy/panel.env 设置 PANEL_ALLOW_PUBLIC_HTTP_RCON=true，再运行 docker compose -f deploy/compose.yaml up -d --force-recreate panel，并勾选上方允许公网 HTTP RCON。面板使用 HTTPS 不代表 RCON 连接也已加密。详见仓库 deploy/README.md。'
+            )
+          "
         />
 
         <div class="flex flex-wrap items-center justify-between gap-3">
           <span class="text-xs text-gray-500">
-            上次更新：{{ formatObservedAt(current?.updatedAt ?? null) }}
+            {{ $t("上次更新：")
+            }}{{ formatObservedAt(current?.updatedAt ?? null) }}
           </span>
           <el-button
             type="primary"
@@ -214,7 +230,7 @@ onMounted(load);
             :disabled="!current"
             :loading="saving"
           >
-            保存设置
+            {{ $t("保存设置") }}
           </el-button>
         </div>
       </el-form>

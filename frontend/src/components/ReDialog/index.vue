@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import {
   type EventType,
   type ButtonProps,
@@ -24,7 +25,7 @@ const footerButtons = computed(() => {
       ? options.footerButtons
       : ([
           {
-            label: "取消",
+            label: t("取消"),
             text: true,
             bg: true,
             btnClick: ({ dialog: { options, index } }) => {
@@ -38,7 +39,7 @@ const footerButtons = computed(() => {
             }
           },
           {
-            label: "确定",
+            label: t("确定"),
             type: "primary",
             text: true,
             bg: true,
@@ -127,7 +128,7 @@ function handleClose(
         v-if="options?.fullscreenIcon"
         class="flex items-center justify-between"
       >
-        <span :id="titleId" :class="titleClass">{{ options?.title }}</span>
+        <span :id="titleId" :class="titleClass">{{ $t(options?.title) }}</span>
         <i
           v-if="!options?.fullscreen"
           :class="fullscreenClass"
@@ -183,7 +184,7 @@ function handleClose(
             "
           >
             <template #reference>
-              <el-button v-bind="btn">{{ btn?.label }}</el-button>
+              <el-button v-bind="btn">{{ $t(btn?.label) }}</el-button>
             </template>
           </el-popconfirm>
           <el-button
@@ -197,7 +198,7 @@ function handleClose(
               })
             "
           >
-            {{ btn?.label }}
+            {{ $t(btn?.label) }}
           </el-button>
         </template>
       </span>

@@ -131,7 +131,7 @@ const transitionMain = defineComponent({
               }"
             >
               <el-backtop
-                title="回到顶部"
+                :title="$t('回到顶部')"
                 target=".app-main .el-scrollbar__wrap"
               >
                 <BackTopIcon />

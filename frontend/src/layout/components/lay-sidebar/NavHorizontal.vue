@@ -51,7 +51,10 @@ onMounted(() => {
     class="horizontal-header"
   >
     <div v-if="showLogo" class="horizontal-header-left" @click="backTopMenu">
-      <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-700 font-bold text-white">W</span>
+      <span
+        class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-700 font-bold text-white"
+        >W</span
+      >
       <span>{{ title }}</span>
     </div>
     <el-menu
@@ -80,7 +83,8 @@ onMounted(() => {
             class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white"
             :style="avatarsStyle"
             aria-hidden="true"
-          >{{ userAvatar }}</span>
+            >{{ userAvatar }}</span
+          >
           <p v-if="username" class="dark:text-white">{{ username }}</p>
         </span>
         <template #dropdown>
@@ -90,14 +94,14 @@ onMounted(() => {
                 :icon="LogoutCircleRLine"
                 style="margin: 5px"
               />
-              退出系统
+              {{ $t("退出系统") }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
       <span
         class="set-icon navbar-bg-hover"
-        title="打开系统配置"
+        :title="$t('打开系统配置')"
         @click="onPanel"
       >
         <IconifyIconOffline :icon="Setting" />

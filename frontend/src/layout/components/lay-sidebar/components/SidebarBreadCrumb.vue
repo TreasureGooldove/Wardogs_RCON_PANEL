@@ -112,7 +112,7 @@ watch(
         class="inline! items-stretch!"
       >
         <a @click.prevent="handleLink(item)">
-          {{ item.meta.title }}
+          {{ $t(item.meta.title) }}
         </a>
       </el-breadcrumb-item>
     </transition-group>

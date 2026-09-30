@@ -1,4 +1,5 @@
 import App from "./App.vue";
+import { panelI18n } from "./i18n";
 import router from "./router";
 import { setupStore } from "@/store";
 import { getPlatformConfig } from "./config";
@@ -23,6 +24,7 @@ import "./assets/iconfont/iconfont.js";
 import "./assets/iconfont/iconfont.css";
 
 const app = createApp(App);
+app.use(panelI18n);
 
 // 自定义指令
 import * as directives from "@/directives";

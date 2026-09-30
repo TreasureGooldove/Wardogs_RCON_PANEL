@@ -1,4 +1,5 @@
 import { message } from "@/utils/message";
+import { t } from "@/i18n";
 import { useEventListener } from "@vueuse/core";
 import { copyTextToClipboard } from "@pureadmin/utils";
 import type { Directive, DirectiveBinding } from "vue";
@@ -18,8 +19,8 @@ export const copy: Directive = {
       useEventListener(el, arg, () => {
         const success = copyTextToClipboard(el.copyValue);
         success
-          ? message("复制成功", { type: "success" })
-          : message("复制失败", { type: "error" });
+          ? message(t("复制成功"), { type: "success" })
+          : message(t("复制失败"), { type: "error" });
       });
     } else {
       throw new Error(

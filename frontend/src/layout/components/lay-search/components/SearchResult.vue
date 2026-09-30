@@ -81,7 +81,7 @@ defineExpose({ handleScroll });
     >
       <component :is="useRenderIcon(item.meta?.icon)" />
       <span class="result-item-title">
-        {{ item.meta?.title }}
+        {{ $t(item.meta?.title) }}
       </span>
       <EnterOutlined />
     </div>

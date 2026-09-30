@@ -48,7 +48,7 @@ const unknownCount = computed(
       </div>
     </div>
     <p v-if="unknownCount" class="mt-2 text-xs text-gray-500">
-      另有 {{ unknownCount }} 位玩家的阵营未知
+      {{ $t("另有") }} {{ unknownCount }} {{ $t("位玩家的阵营未知") }}
     </p>
   </div>
 </template>

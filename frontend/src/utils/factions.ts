@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 export const FACTIONS = [
   { code: "BLU", name: "Lonestar", color: "#5B95D8" },
   { code: "RED", name: "Valkyra", color: "#D86060" },
@@ -25,5 +26,5 @@ export function normalizeFaction(raw: string | null): FactionCode | null {
 export function factionDisplay(raw: string | null) {
   const code = normalizeFaction(raw);
   const faction = FACTIONS.find(item => item.code === code);
-  return faction ?? { name: raw?.trim() || "未知", color: "#909399" };
+  return faction ?? { name: raw?.trim() || t("未知"), color: "#909399" };
 }

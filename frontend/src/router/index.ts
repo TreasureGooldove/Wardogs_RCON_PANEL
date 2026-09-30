@@ -1,4 +1,5 @@
 import { getConfig } from "@/config";
+import { t } from "@/i18n";
 import NProgress from "@/utils/progress";
 import { buildHierarchyTree } from "@/utils/tree";
 import { useUserStoreHook } from "@/store/modules/user";
@@ -77,8 +78,8 @@ router.beforeEach(async (to, from) => {
   const title = to.meta.title as string | undefined;
   if (title) {
     document.title = getConfig().Title
-      ? `${title} | ${getConfig().Title}`
-      : title;
+      ? `${t(title)} | ${t(getConfig().Title)}`
+      : t(title);
   }
 
   const userStore = useUserStoreHook();

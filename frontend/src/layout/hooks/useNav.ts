@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import { storeToRefs } from "pinia";
 import { getConfig } from "@/config";
 import { emitter } from "@/utils/mitt";
@@ -38,8 +39,9 @@ export function useNav() {
   });
 
   /** 面板不接收头像资料，以用户名首字作为中性标识。 */
-  const userAvatar = computed(() =>
-    useUserStoreHook().username?.slice(0, 1).toLocaleUpperCase() || "管"
+  const userAvatar = computed(
+    () =>
+      useUserStoreHook().username?.slice(0, 1).toLocaleUpperCase() || t("管")
   );
 
   /** 昵称（如果昵称为空则显示用户名） */
@@ -67,14 +69,14 @@ export function useNav() {
   });
 
   const title = computed(() => {
-    return $config.Title;
+    return t($config.Title);
   });
 
   /** 动态title */
   function changeTitle(meta: routeMetaType) {
     const Title = getConfig().Title;
-    if (Title) document.title = `${meta.title} | ${Title}`;
-    else document.title = meta.title;
+    if (Title) document.title = `${t(meta.title)} | ${t(Title)}`;
+    else document.title = t(meta.title);
   }
 
   /** 退出登录 */
@@ -82,7 +84,7 @@ export function useNav() {
     try {
       await useUserStoreHook().logOut();
     } catch {
-      message("退出失败，请检查面板连接后重试", { type: "error" });
+      message(t("退出失败，请检查面板连接后重试"), { type: "error" });
     }
   }
 

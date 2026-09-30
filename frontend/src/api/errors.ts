@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import { isAxiosError } from "axios";
 
 export type ApiErrorCode =
@@ -80,11 +81,11 @@ export function getApiErrorCode(error: unknown): ApiErrorCode | null {
 
 export function getApiErrorMessage(error: unknown): string {
   const code = getApiErrorCode(error);
-  if (code) return messages[code];
+  if (code) return t(messages[code]);
   if (isAxiosError(error)) {
-    if (!error.response) return "无法连接面板服务，请检查本地网络";
-    if (error.response.status === 401) return "登录已失效，请重新登录";
-    if (error.response.status === 429) return "请求过于频繁，请稍后重试";
+    if (!error.response) return t("无法连接面板服务，请检查本地网络");
+    if (error.response.status === 401) return t("登录已失效，请重新登录");
+    if (error.response.status === 429) return t("请求过于频繁，请稍后重试");
   }
-  return "请求失败，请稍后重试";
+  return t("请求失败，请稍后重试");
 }

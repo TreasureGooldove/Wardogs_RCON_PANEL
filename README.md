@@ -64,6 +64,12 @@ pnpm dev
 
 保存真实服务器连接前，应在后端环境中设置持久的 `PANEL_CONFIG_KEY`（Fernet 密钥）；生成方法及其他环境变量见 [后端示例](backend/.env.example)。不要把真实 Bearer、Steam Web API Key、管理员密码或数据库放进 Git。服务端环境变量不会因复制 `.env.example` 而自动加载；Docker Compose 使用 [部署环境文件](deploy/panel.env.example)。
 
+## 🌐 多语言
+
+支持简体中文、English、日本語和 한국어。登录页、顶部导航及“界面设置”均可切换语言，选择保存在当前浏览器。
+
+除中文外，其他语言均标注 **AI 翻译**，仅供参考。语言包随应用发布，运行时不请求翻译服务；服务器名称、玩家昵称、SteamID、RCON 命令标识及用户编辑的公告/服规保持原文。切换语言前请保存未提交的草稿，确认后界面会重新载入。
+
 ## 🛠️ 部署与检查
 
 部署模板和步骤见 [deploy/README.md](deploy/README.md)。支持 HTTP 与 HTTPS 部署；HTTP 访问在进入登录页面前显示安全提醒。教程包含 HTTP 配置、HTTPS 自动证书及迁移步骤，建议使用 HTTPS。公网明文 HTTP RCON 需要显式启用双重门禁，并会明文传输具有管理权限的 Bearer，优先使用 HTTPS 或受控私网。

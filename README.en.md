@@ -64,6 +64,12 @@ Open `http://127.0.0.1:8848`. To use read-only mock data first, set `WARDOGS_RCO
 
 Set a persistent Fernet `PANEL_CONFIG_KEY` in the backend environment before saving a real server connection. See the [backend environment example](backend/.env.example) for key generation and other settings. Never commit a real Bearer, Steam Web API key, administrator password, or database. Copying `.env.example` alone does not load environment variables for local commands; Docker Compose uses the [deployment environment file](deploy/panel.env.example).
 
+## 🌐 Languages
+
+Supports Simplified Chinese, English, Japanese, and Korean. Switch languages on the login page, navigation bar, or Interface Settings; your choice is saved in the current browser.
+
+All languages except Chinese are marked **AI translated** and provided for reference. Language packs are bundled locally, with no runtime translation requests. Server names, player names, SteamIDs, RCON identifiers, and user-edited broadcasts/rules remain unchanged. Save pending drafts before confirming a language switch, which reloads the interface.
+
 ## 🛠️ Deployment and checks
 
 See [deployment guide](deploy/README.en.md) for the deployment template and steps. HTTP and HTTPS deployments are supported. HTTP displays a security warning before the login page. The guide covers HTTP configuration, automatic HTTPS certificates, and migration; HTTPS is recommended. Public plain HTTP RCON requires two explicit opt-ins and sends the privileged Bearer in cleartext; prefer HTTPS or a controlled private network.

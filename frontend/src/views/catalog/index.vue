@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import { onMounted, reactive, ref } from "vue";
 import { getCapabilities, type CapabilitiesResponse } from "@/api/capabilities";
 import {
@@ -12,9 +13,9 @@ import { formatObservedAt } from "@/api/snapshot";
 defineOptions({ name: "Catalog" });
 
 const kinds: Array<{ key: CatalogKind; title: string }> = [
-  { key: "maps", title: "地图" },
-  { key: "experiences", title: "游戏模式" },
-  { key: "lightings", title: "光照" }
+  { key: "maps", title: t("地图") },
+  { key: "experiences", title: t("游戏模式") },
+  { key: "lightings", title: t("光照") }
 ];
 const capabilities = ref<CapabilitiesResponse | null>(null);
 const catalogs = reactive<Record<CatalogKind, CatalogResponse | null>>({
@@ -32,8 +33,8 @@ const loading = ref(false);
 
 function availability(kind: CatalogKind) {
   const value = capabilities.value?.features[kind];
-  if (value === false) return "目标服务器明确不支持此目录";
-  if (value === null || value === undefined) return "此目录的可用性未知";
+  if (value === false) return t("目标服务器明确不支持此目录");
+  if (value === null || value === undefined) return t("此目录的可用性未知");
   return "";
 }
 
@@ -73,10 +74,14 @@ onMounted(refresh);
   <div class="p-5 space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold">参考目录</h1>
-        <p class="text-sm text-gray-500">仅查看目标服务器提供的地图、模式和光照</p>
+        <h1 class="text-2xl font-semibold">{{ $t("参考目录") }}</h1>
+        <p class="text-sm text-gray-500">
+          {{ $t("仅查看目标服务器提供的地图、模式和光照") }}
+        </p>
       </div>
-      <el-button :loading="loading" @click="refresh">刷新目录</el-button>
+      <el-button :loading="loading" @click="refresh">{{
+        $t("刷新目录")
+      }}</el-button>
     </div>
 
     <el-alert
@@ -87,7 +92,7 @@ onMounted(refresh);
     />
     <el-alert
       v-if="capabilities?.state === 'stale'"
-      title="能力探测信息已过期，目录可用性可能已变化"
+      :title="$t('能力探测信息已过期，目录可用性可能已变化')"
       type="warning"
       :closable="false"
     />
@@ -96,7 +101,7 @@ onMounted(refresh);
       <el-card v-for="kind in kinds" :key="kind.key" shadow="never">
         <template #header>
           <div class="flex items-center justify-between gap-3">
-            <span>{{ kind.title }}</span>
+            <span>{{ $t(kind.title) }}</span>
             <span class="text-xs text-gray-500">
               {{ formatObservedAt(catalogs[kind.key]?.observedAt ?? null) }}
             </span>
@@ -113,7 +118,7 @@ onMounted(refresh);
         <el-alert
           v-if="catalogs[kind.key]?.stale"
           class="mb-3"
-          title="以下为过期目录快照"
+          :title="$t('以下为过期目录快照')"
           type="warning"
           :closable="false"
         />
@@ -125,15 +130,15 @@ onMounted(refresh);
         />
         <el-empty
           v-else-if="!catalogs[kind.key]"
-          description="尚无可显示的目录数据"
+          :description="$t('尚无可显示的目录数据')"
         />
         <el-empty
           v-else-if="catalogs[kind.key]?.items.length === 0"
-          description="目录为空"
+          :description="$t('目录为空')"
         />
         <el-table v-else :data="catalogs[kind.key]?.items" border>
-          <el-table-column prop="label" label="名称" min-width="140" />
-          <el-table-column prop="id" label="标识" min-width="120" />
+          <el-table-column prop="label" :label="$t('名称')" min-width="140" />
+          <el-table-column prop="id" :label="$t('标识')" min-width="120" />
         </el-table>
       </el-card>
     </div>

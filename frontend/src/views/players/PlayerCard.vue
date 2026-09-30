@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import { computed } from "vue";
 import type { Player } from "@/api/players";
 import type { SteamProfile } from "@/api/steam";
@@ -53,7 +54,7 @@ defineEmits<{
 }>();
 
 function displayNumber(value: number | null) {
-  return value === null ? "未知" : value;
+  return value === null ? t("未知") : value;
 }
 </script>
 
@@ -76,12 +77,20 @@ function displayNumber(value: number | null) {
           target="_blank"
           rel="noopener noreferrer"
           class="break-all text-sm font-semibold text-[var(--el-color-primary)] hover:underline focus-visible:underline"
-          :title="`在新标签页打开 ${player.name || '玩家'} 的 Steam 主页`"
+          :title="
+            $t('在新标签页打开 {p0} 的 Steam 主页', {
+              p0: player.name || $t('玩家')
+            })
+          "
         >
-          {{ player.name || "未命名玩家" }}
+          {{ player.name || $t("未命名玩家") }}
         </a>
-        <div v-else class="break-all text-sm font-semibold" :title="player.name">
-          {{ player.name || "未命名玩家" }}
+        <div
+          v-else
+          class="break-all text-sm font-semibold"
+          :title="player.name"
+        >
+          {{ player.name || $t("未命名玩家") }}
         </div>
         <div
           v-if="steamProfile?.personaName"
@@ -99,31 +108,31 @@ function displayNumber(value: number | null) {
           <span v-else>{{ steamProfile.personaName }}</span>
         </div>
         <div v-if="showFaction" class="mt-1 text-xs text-gray-500">
-          原始阵营：{{ player.faction || "未知" }}
+          {{ $t("原始阵营：") }}{{ player.faction || $t("未知") }}
         </div>
         <div class="mt-1 break-all font-mono text-xs text-gray-500">
-          SteamID：{{ player.steamId ?? "未知" }}
+          SteamID：{{ player.steamId ?? $t("未知") }}
         </div>
       </div>
     </div>
 
     <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
       <div>
-        <dt class="text-gray-500">击杀</dt>
+        <dt class="text-gray-500">{{ $t("击杀") }}</dt>
         <dd class="font-medium">{{ displayNumber(player.kills) }}</dd>
       </div>
       <div>
-        <dt class="text-gray-500">死亡</dt>
+        <dt class="text-gray-500">{{ $t("死亡") }}</dt>
         <dd class="font-medium">{{ displayNumber(player.deaths) }}</dd>
       </div>
       <div>
-        <dt class="text-gray-500">现金</dt>
+        <dt class="text-gray-500">{{ $t("现金") }}</dt>
         <dd class="font-medium">{{ displayNumber(player.cash) }}</dd>
       </div>
       <div>
-        <dt class="text-gray-500">延迟</dt>
+        <dt class="text-gray-500">{{ $t("延迟") }}</dt>
         <dd class="font-medium">
-          {{ player.pingMs === null ? "未知" : player.pingMs + " ms" }}
+          {{ player.pingMs === null ? $t("未知") : player.pingMs + " ms" }}
         </dd>
       </div>
     </dl>
@@ -137,8 +146,8 @@ function displayNumber(value: number | null) {
         :content="
           warningHistoryDisabledReason ||
           (showWarningAction
-            ? '发送管理员警告私聊，查看面板本地记录'
-            : '查看面板本地警告记录')
+            ? $t('发送管理员警告私聊，查看面板本地记录')
+            : $t('查看面板本地警告记录'))
         "
       >
         <span>
@@ -148,24 +157,27 @@ function displayNumber(value: number | null) {
             plain
             :disabled="Boolean(warningHistoryDisabledReason)"
             @click="$emit('warnings')"
-            >{{ showWarningAction ? "警告" : "警告记录" }}</el-button
+            >{{ showWarningAction ? $t("警告") : $t("警告记录") }}</el-button
           >
         </span>
       </el-tooltip>
-      <el-tooltip v-if="showKick" :content="kickDisabledReason || '踢出该玩家'">
+      <el-tooltip
+        v-if="showKick"
+        :content="kickDisabledReason || $t('踢出该玩家')"
+      >
         <span>
           <el-button
             size="small"
             type="warning"
             :disabled="Boolean(kickDisabledReason)"
             @click="$emit('kick')"
-            >踢出</el-button
+            >{{ $t("踢出") }}</el-button
           >
         </span>
       </el-tooltip>
       <el-tooltip
         v-if="showBan"
-        :content="banDisabledReason || '永久封禁该玩家'"
+        :content="banDisabledReason || $t('永久封禁该玩家')"
       >
         <span>
           <el-button
@@ -173,13 +185,13 @@ function displayNumber(value: number | null) {
             type="danger"
             :disabled="Boolean(banDisabledReason)"
             @click="$emit('ban')"
-            >永久封禁</el-button
+            >{{ $t("永久封禁") }}</el-button
           >
         </span>
       </el-tooltip>
       <el-tooltip
         v-if="showExtra"
-        :content="killDisabledReason || '击杀当前角色，玩家仍可正常重生'"
+        :content="killDisabledReason || $t('击杀当前角色，玩家仍可正常重生')"
       >
         <span>
           <el-button
@@ -188,33 +200,33 @@ function displayNumber(value: number | null) {
             plain
             :disabled="Boolean(killDisabledReason)"
             @click="$emit('kill')"
-            >击杀玩家</el-button
+            >{{ $t("击杀玩家") }}</el-button
           >
         </span>
       </el-tooltip>
       <el-tooltip
         v-if="showExtra"
-        :content="messageDisabledReason || '向该玩家发送私聊'"
+        :content="messageDisabledReason || $t('向该玩家发送私聊')"
       >
         <span>
           <el-button
             size="small"
             :disabled="Boolean(messageDisabledReason)"
             @click="$emit('message')"
-            >私聊</el-button
+            >{{ $t("私聊") }}</el-button
           >
         </span>
       </el-tooltip>
       <el-tooltip
         v-if="showExtra"
-        :content="factionDisabledReason || '更换玩家阵营'"
+        :content="factionDisabledReason || $t('更换玩家阵营')"
       >
         <span>
           <el-button
             size="small"
             :disabled="Boolean(factionDisabledReason)"
             @click="$emit('changeFaction')"
-            >更换阵营</el-button
+            >{{ $t("更换阵营") }}</el-button
           >
         </span>
       </el-tooltip>
@@ -223,7 +235,7 @@ function displayNumber(value: number | null) {
       v-else
       class="mt-3 border-t border-[var(--el-border-color-lighter)] pt-3 text-xs text-gray-500"
     >
-      当前账号仅可查看玩家
+      {{ $t("当前账号仅可查看玩家") }}
     </p>
   </article>
 </template>

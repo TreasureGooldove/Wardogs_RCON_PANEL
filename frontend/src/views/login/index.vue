@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import Motion from "./utils/motion";
+import LanguageSelector from "@/components/LanguageSelector.vue";
 import { useRoute, useRouter } from "vue-router";
 import { message } from "@/utils/message";
 import { loginRules } from "./utils/rule";
@@ -63,7 +65,7 @@ const onLogin = async (formEl: FormInstance | undefined) => {
         ? target
         : "/welcome";
     await router.replace(redirect);
-    message("登录成功", { type: "success" });
+    message(t("登录成功"), { type: "success" });
   } catch (error) {
     message(getApiErrorMessage(error), { type: "error" });
   } finally {
@@ -89,6 +91,7 @@ useEventListener(document, "keydown", ({ code }) => {
 </script>
 
 <template>
+  <div class="fixed right-3 top-3 z-10"><LanguageSelector /></div>
   <div class="select-none">
     <img :src="bg" class="wave" />
     <div class="flex-c absolute right-5 top-3">
@@ -124,7 +127,7 @@ useEventListener(document, "keydown", ({ code }) => {
                   v-model="ruleForm.username"
                   clearable
                   autocomplete="username"
-                  placeholder="账号"
+                  :placeholder="$t('账号')"
                   :prefix-icon="useRenderIcon(User)"
                 />
               </el-form-item>
@@ -137,7 +140,7 @@ useEventListener(document, "keydown", ({ code }) => {
                   clearable
                   show-password
                   autocomplete="current-password"
-                  placeholder="密码"
+                  :placeholder="$t('密码')"
                   :prefix-icon="useRenderIcon(Lock)"
                 />
               </el-form-item>
@@ -152,7 +155,7 @@ useEventListener(document, "keydown", ({ code }) => {
                 :disabled="disabled"
                 @click="onLogin(ruleFormRef)"
               >
-                登录
+                {{ $t("登录") }}
               </el-button>
             </Motion>
           </el-form>

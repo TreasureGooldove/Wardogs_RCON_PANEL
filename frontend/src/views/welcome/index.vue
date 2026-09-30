@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import {
   computed,
   onActivated,
@@ -34,17 +35,20 @@ let rerunWhenIdle = false;
 
 const statusCapability = computed(() => {
   if (!capabilities.value || capabilities.value.state === "unavailable") {
-    return "未知";
+    return t("未知");
   }
-  if (capabilities.value.features.status === null) return "未知";
-  return capabilities.value.features.status ? "支持" : "不支持";
+  if (capabilities.value.features.status === null) return t("未知");
+  return capabilities.value.features.status ? t("支持") : t("不支持");
 });
 
 const playerCount = computed(() => {
-  if (!status.value) return "未知";
+  if (!status.value) return t("未知");
   const current = status.value.playerCount;
   const maximum = status.value.maxPlayers;
-  return `${current ?? "未知"} / ${maximum ?? "未知"}`;
+  return t("{p0} / {p1}", {
+    p0: current ?? t("未知"),
+    p1: maximum ?? t("未知")
+  });
 });
 
 async function refresh() {
@@ -128,14 +132,14 @@ onUnmounted(stop);
   <div class="p-5 space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold">服务器概况</h1>
+        <h1 class="text-2xl font-semibold">{{ $t("服务器概况") }}</h1>
         <p class="text-sm text-gray-500">
-          服务器状态每 45 秒刷新，阵营人数约每 5 秒刷新
+          {{ $t("服务器状态每 45 秒刷新，阵营人数约每 5 秒刷新") }}
         </p>
       </div>
-      <el-button :loading="loading || playerLoading" @click="refreshAll"
-        >刷新状态</el-button
-      >
+      <el-button :loading="loading || playerLoading" @click="refreshAll">{{
+        $t("刷新状态")
+      }}</el-button>
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -147,19 +151,19 @@ onUnmounted(stop);
     />
     <el-alert
       v-if="status?.stale"
-      title="当前显示的是过期快照，并非实时服务器状态"
+      :title="$t('当前显示的是过期快照，并非实时服务器状态')"
       type="warning"
       :closable="false"
     />
     <el-alert
       v-if="capabilities?.state === 'stale'"
-      title="能力信息已过期，功能可用性以新一次探测为准"
+      :title="$t('能力信息已过期，功能可用性以新一次探测为准')"
       type="warning"
       :closable="false"
     />
     <el-alert
       v-if="playerSnapshot?.stale"
-      title="阵营人数来自过期的玩家快照"
+      :title="$t('阵营人数来自过期的玩家快照')"
       type="warning"
       :closable="false"
     />
@@ -167,9 +171,10 @@ onUnmounted(stop);
     <el-card shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <span>实时阵营人数</span>
+          <span>{{ $t("实时阵营人数") }}</span>
           <span class="text-sm text-gray-500">
-            采集时间：{{ formatObservedAt(playerSnapshot?.observedAt ?? null) }}
+            {{ $t("采集时间：")
+            }}{{ formatObservedAt(playerSnapshot?.observedAt ?? null) }}
           </span>
         </div>
       </template>
@@ -179,94 +184,114 @@ onUnmounted(stop);
     <el-card shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <span>当前快照</span>
+          <span>{{ $t("当前快照") }}</span>
           <span class="text-sm text-gray-500">
-            采集时间：{{ formatObservedAt(status?.observedAt ?? null) }}
+            {{ $t("采集时间：")
+            }}{{ formatObservedAt(status?.observedAt ?? null) }}
           </span>
         </div>
       </template>
 
       <el-skeleton v-if="loading && !status" :rows="5" animated />
-      <el-empty v-else-if="!status" description="尚无可显示的服务器状态" />
+      <el-empty
+        v-else-if="!status"
+        :description="$t('尚无可显示的服务器状态')"
+      />
       <div v-else class="space-y-5">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div class="rounded-lg bg-[var(--el-fill-color-light)] p-5">
-            <div class="text-sm text-gray-500">当前地图</div>
+            <div class="text-sm text-gray-500">{{ $t("当前地图") }}</div>
             <div class="mt-2 text-xl font-medium">
-              {{ status.map ?? "未知" }}
+              {{ status.map ?? $t("未知") }}
             </div>
           </div>
           <div class="rounded-lg bg-[var(--el-fill-color-light)] p-5">
-            <div class="text-sm text-gray-500">在线人数 / 容量</div>
+            <div class="text-sm text-gray-500">{{ $t("在线人数 / 容量") }}</div>
             <div class="mt-2 text-xl font-medium">{{ playerCount }}</div>
           </div>
           <div class="rounded-lg bg-[var(--el-fill-color-light)] p-5">
-            <div class="text-sm text-gray-500">状态查询能力</div>
+            <div class="text-sm text-gray-500">{{ $t("状态查询能力") }}</div>
             <div class="mt-2 text-xl font-medium">{{ statusCapability }}</div>
           </div>
         </div>
 
         <el-descriptions :column="1" border>
-          <el-descriptions-item label="服务器名称">
-            {{ status.serverName ?? "未知" }}
+          <el-descriptions-item :label="$t('服务器名称')">
+            {{ status.serverName ?? $t("未知") }}
           </el-descriptions-item>
-          <el-descriptions-item label="游戏模式">
+          <el-descriptions-item :label="$t('游戏模式')">
             {{
               status.experiences === null
-                ? "未知"
+                ? $t("未知")
                 : status.experiences.length
                   ? status.experiences.join("、")
-                  : "无"
+                  : $t("无")
             }}
           </el-descriptions-item>
-          <el-descriptions-item label="光照">
-            {{ status.lighting ?? "未知" }}
+          <el-descriptions-item :label="$t('光照')">
+            {{ status.lighting ?? $t("未知") }}
           </el-descriptions-item>
-          <el-descriptions-item label="控制区">
-            {{ status.alternator ?? "未知" }}
+          <el-descriptions-item :label="$t('控制区')">
+            {{ status.alternator ?? $t("未知") }}
           </el-descriptions-item>
-          <el-descriptions-item label="比分周期">
-            {{ status.scoreTick?.current ?? "未知" }}
-            <span v-if="status.scoreTick?.min != null && status.scoreTick?.max != null">
-              （范围 {{ status.scoreTick?.min }} – {{ status.scoreTick?.max }}）
+          <el-descriptions-item :label="$t('比分周期')">
+            {{ status.scoreTick?.current ?? $t("未知") }}
+            <span
+              v-if="
+                status.scoreTick?.min != null && status.scoreTick?.max != null
+              "
+            >
+              {{ $t("（范围") }} {{ status.scoreTick?.min }} –
+              {{ status.scoreTick?.max }}）
             </span>
           </el-descriptions-item>
-          <el-descriptions-item label="比分上限">
-            {{ status.scoreCap ?? "未知" }}
+          <el-descriptions-item :label="$t('比分上限')">
+            {{ status.scoreCap ?? $t("未知") }}
           </el-descriptions-item>
-          <el-descriptions-item label="比赛时长">
-            {{ status.matchSeconds === null ? "未知" : `${Math.floor(status.matchSeconds / 60)} 分 ${status.matchSeconds % 60} 秒` }}
+          <el-descriptions-item :label="$t('比赛时长')">
+            {{
+              status.matchSeconds === null
+                ? $t("未知")
+                : $t("{p0} 分 {p1} 秒", {
+                    p0: Math.floor(status.matchSeconds / 60),
+                    p1: status.matchSeconds % 60
+                  })
+            }}
           </el-descriptions-item>
-          <el-descriptions-item label="地图轮换位置">
-            {{ status.rotation?.nowIndex ?? "未知" }} → {{ status.rotation?.nextIndex ?? "未知" }}
+          <el-descriptions-item :label="$t('地图轮换位置')">
+            {{ status.rotation?.nowIndex ?? $t("未知") }} →
+            {{ status.rotation?.nextIndex ?? $t("未知") }}
           </el-descriptions-item>
         </el-descriptions>
 
         <div>
-          <h2 class="mb-3 text-base font-medium">阵营比分</h2>
+          <h2 class="mb-3 text-base font-medium">{{ $t("阵营比分") }}</h2>
           <p v-if="status.factionScores === null" class="text-sm text-gray-500">
-            比分未知
+            {{ $t("比分未知") }}
           </p>
           <p
             v-else-if="status.factionScores.length === 0"
             class="text-sm text-gray-500"
           >
-            暂无比分
+            {{ $t("暂无比分") }}
           </p>
           <el-table v-else :data="status.factionScores" border>
-            <el-table-column label="阵营">
+            <el-table-column :label="$t('阵营')">
               <template #default="scope">
-                <span :style="{ color: factionDisplay(scope.row.name).color }">{{ scope.row.name }}</span>
+                <span
+                  :style="{ color: factionDisplay(scope.row.name).color }"
+                  >{{ scope.row.name }}</span
+                >
               </template>
             </el-table-column>
-            <el-table-column prop="score" label="分数" />
+            <el-table-column prop="score" :label="$t('分数')" />
           </el-table>
         </div>
       </div>
     </el-card>
 
     <el-card shadow="never">
-      <template #header>阵营现金趋势</template>
+      <template #header>{{ $t("阵营现金趋势") }}</template>
       <FactionCashChart
         :players="playerSnapshot?.players ?? null"
         :observed-at="playerSnapshot?.observedAt ?? null"

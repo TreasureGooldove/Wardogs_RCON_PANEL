@@ -15,20 +15,17 @@ const { device } = useNav();
 <template>
   <div class="search-footer text-[#333] dark:text-white">
     <span class="search-footer-item">
-      <EnterOutlined class="icon" />
-      确认
+      <EnterOutlined class="icon" /> {{ $t("确认") }}
     </span>
     <span class="search-footer-item">
       <IconifyIconOffline :icon="ArrowUpLine" class="icon" />
-      <IconifyIconOffline :icon="ArrowDownLine" class="icon" />
-      切换
+      <IconifyIconOffline :icon="ArrowDownLine" class="icon" /> {{ $t("切换") }}
     </span>
     <span class="search-footer-item">
-      <MdiKeyboardEsc class="icon" />
-      关闭
+      <MdiKeyboardEsc class="icon" /> {{ $t("关闭") }}
     </span>
     <p v-if="device !== 'mobile' && total > 0" class="search-footer-total">
-      {{ `共 ${total} 项` }}
+      {{ $t("共 {p0} 项", { p0: total }) }}
     </p>
   </div>
 </template>

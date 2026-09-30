@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import {
   computed,
   onActivated,
@@ -142,7 +143,7 @@ const groups = computed<PlayerGroup[]>(() => {
     ...known,
     {
       key: "UNKNOWN",
-      name: "未知阵营",
+      name: t("未知阵营"),
       color: "#909399",
       total: unknown.length,
       players: sortByName(
@@ -250,43 +251,46 @@ function refreshCapabilities() {
 }
 
 function disabledReason(player: Player, action: ModerationAction): string {
-  if (!pageActive) return "当前页面未激活";
-  if (action === "kick" && !userStore.canKick) return "当前账号没有踢出权限";
-  if (action === "ban" && !userStore.canBan) return "当前账号没有永久封禁权限";
-  if (!player.steamId) return "该玩家没有可用的 SteamID，无法执行管理操作";
+  if (!pageActive) return t("当前页面未激活");
+  if (action === "kick" && !userStore.canKick) return t("当前账号没有踢出权限");
+  if (action === "ban" && !userStore.canBan)
+    return t("当前账号没有永久封禁权限");
+  if (!player.steamId) return t("该玩家没有可用的 SteamID，无法执行管理操作");
   if (!snapshot.value || snapshot.value.stale)
-    return "玩家名单已过期，请先刷新";
+    return t("玩家名单已过期，请先刷新");
   if (!snapshot.value.targetRevision)
-    return "无法确认服务器目标，请刷新玩家名单";
-  if (loading.value) return "正在刷新玩家名单";
-  if (actionPending.value) return "请等待当前管理操作完成";
-  if (capabilities.value?.state !== "available") return "管理能力尚未确认可用";
+    return t("无法确认服务器目标，请刷新玩家名单");
+  if (loading.value) return t("正在刷新玩家名单");
+  if (actionPending.value) return t("请等待当前管理操作完成");
+  if (capabilities.value?.state !== "available")
+    return t("管理能力尚未确认可用");
   if (capabilityClock.value - capabilityFetchedAt.value > 35_000)
-    return "管理能力已过期，请刷新";
+    return t("管理能力已过期，请刷新");
   if (capabilities.value.features[action] !== true) {
     return action === "kick"
-      ? "目标服务器未开放踢出能力"
-      : "目标服务器未开放封禁能力";
+      ? t("目标服务器未开放踢出能力")
+      : t("目标服务器未开放封禁能力");
   }
   return "";
 }
 
 function extraDisabledReason(player: Player, action: AdvertisedAction): string {
   if (userStore.role !== "owner" && !userStore.permissions.includes(action))
-    return "当前账号没有此项操作权限";
+    return t("当前账号没有此项操作权限");
   if (!pageActive || document.visibilityState !== "visible")
-    return "当前页面未激活";
-  if (!player.steamId) return "该玩家没有可用的 SteamID，无法执行管理操作";
+    return t("当前页面未激活");
+  if (!player.steamId) return t("该玩家没有可用的 SteamID，无法执行管理操作");
   if (!snapshot.value || snapshot.value.stale)
-    return "玩家名单已过期，请先刷新";
+    return t("玩家名单已过期，请先刷新");
   if (!snapshot.value.targetRevision)
-    return "无法确认服务器目标，请刷新玩家名单";
-  if (loading.value || actionPending.value) return "请等待当前请求完成";
-  if (capabilities.value?.state !== "available") return "管理能力尚未确认可用";
+    return t("无法确认服务器目标，请刷新玩家名单");
+  if (loading.value || actionPending.value) return t("请等待当前请求完成");
+  if (capabilities.value?.state !== "available")
+    return t("管理能力尚未确认可用");
   if (capabilityClock.value - capabilityFetchedAt.value > 35_000)
-    return "管理能力已过期，请刷新";
+    return t("管理能力已过期，请刷新");
   if (capabilities.value.advertisedActions?.[action] !== true)
-    return "目标服务器未开放此项操作";
+    return t("目标服务器未开放此项操作");
   return "";
 }
 
@@ -305,30 +309,30 @@ function samePlayerAndTarget(player: Player, targetRevision: string): boolean {
 
 function warningHistoryDisabledReason(player: Player): string {
   if (!pageActive || document.visibilityState !== "visible")
-    return "当前页面未激活";
-  if (!player.steamId) return "该玩家没有可用的 SteamID，无法查询警告记录";
+    return t("当前页面未激活");
+  if (!player.steamId) return t("该玩家没有可用的 SteamID，无法查询警告记录");
   return "";
 }
 
 function warningWriteBlockedReason(): string {
   const player = warningPlayer.value;
-  if (!player) return "请选择玩家";
-  if (!warningDialogVisible.value) return "警告窗口已关闭";
+  if (!player) return t("请选择玩家");
+  if (!warningDialogVisible.value) return t("警告窗口已关闭");
   if (warningUncertain.value)
-    return "上一条警告结果不确定，请先人工核查，勿立即重复发送";
+    return t("上一条警告结果不确定，请先人工核查，勿立即重复发送");
   if (userStore.role !== "owner" && !userStore.permissions.includes("warning"))
-    return "当前账号没有警告权限";
+    return t("当前账号没有警告权限");
   const blocked = extraDisabledReason(player, "message");
   if (blocked) return blocked;
   if (!samePlayerAndTarget(player, warningTargetRevision.value))
-    return "玩家名单或服务器目标已变化，请刷新名单后重试";
+    return t("玩家名单或服务器目标已变化，请刷新名单后重试");
   if (
     warningDialogLoading.value ||
     !warningHistory.value ||
     warningHistory.value.stale ||
     warningHistory.value.targetRevision !== warningTargetRevision.value
   ) {
-    return "警告记录尚未与当前服务器目标核对";
+    return t("警告记录尚未与当前服务器目标核对");
   }
   return "";
 }
@@ -347,8 +351,9 @@ async function loadWarningHistory(steamId: string, targetRevision: string) {
       result.steamId !== steamId ||
       (targetRevision && result.targetRevision !== targetRevision)
     ) {
-      warningDialogError.value =
-        "警告记录与当前玩家或服务器目标不一致，请刷新名单后重试";
+      warningDialogError.value = t(
+        "警告记录与当前玩家或服务器目标不一致，请刷新名单后重试"
+      );
       return;
     }
     warningHistory.value = result;
@@ -363,7 +368,7 @@ async function loadWarningHistory(steamId: string, targetRevision: string) {
 function openWarnings(player: Player) {
   const blocked = warningHistoryDisabledReason(player);
   if (blocked || !player.steamId) {
-    ElMessage.warning(blocked || "请刷新玩家名单后重试");
+    ElMessage.warning(blocked || t("请刷新玩家名单后重试"));
     return;
   }
   warningPlayer.value = player;
@@ -377,16 +382,16 @@ function openWarnings(player: Player) {
 
 function validateWarningReason(value: string): string {
   if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u.test(value))
-    return "警告原因必须是单行文字，不能含控制字符";
+    return t("警告原因必须是单行文字，不能含控制字符");
   const length = value.trim().length;
-  return length >= 1 && length <= 180 ? "" : "警告原因需为 1–180 个字符";
+  return length >= 1 && length <= 180 ? "" : t("警告原因需为 1–180 个字符");
 }
 
 function warningOutcomeLabel(value: WarningOutcome): string {
   return {
-    accepted: "已发送",
-    rejected: "发送失败",
-    uncertain: "结果不确定"
+    accepted: t("已发送"),
+    rejected: t("发送失败"),
+    uncertain: t("结果不确定")
   }[value];
 }
 
@@ -405,17 +410,20 @@ async function submitWarning() {
   const reason = warningReason.value.trim();
   if (!player || !steamId) return;
   const invalid = validateWarningReason(warningReason.value);
-  if (invalid) return void ElMessage.warning(invalid);
+  if (invalid) return void ElMessage.warning(t(invalid));
   const blocked = warningWriteBlockedReason();
   if (blocked) return void ElMessage.warning(blocked);
   try {
     await ElMessageBox.confirm(
-      `确认向 ${player.name}（SteamID：${steamId}）发送管理员警告私聊，并在面板本地记录？原因：${reason}。这不是游戏原生处罚。`,
-      "发送警告",
+      t(
+        "确认向 {p0}（SteamID：{p1}）发送管理员警告私聊，并在面板本地记录？原因：{p2}。这不是游戏原生处罚。",
+        { p0: player.name, p1: steamId, p2: reason }
+      ),
+      t("发送警告"),
       {
         type: "warning",
-        confirmButtonText: "确认发送警告",
-        cancelButtonText: "取消"
+        confirmButtonText: t("确认发送警告"),
+        cancelButtonText: t("取消")
       }
     );
   } catch {
@@ -428,7 +436,7 @@ async function submitWarning() {
     !warningDialogVisible.value ||
     warningReason.value.trim() !== reason
   ) {
-    ElMessage.warning(latestBlock || "玩家或警告原因已变化，请重新确认");
+    ElMessage.warning(latestBlock || t("玩家或警告原因已变化，请重新确认"));
     return;
   }
   actionPending.value = true;
@@ -438,16 +446,18 @@ async function submitWarning() {
     const result = await sendWarning({ steamId, reason, targetRevision });
     warningReason.value = "";
     if (result.recorded) {
-      ElMessage.success("管理员警告私聊已发送并记入面板");
+      ElMessage.success(t("管理员警告私聊已发送并记入面板"));
     } else {
-      ElMessage.warning("警告私聊已发送，但面板记录未保存，请人工核查");
+      ElMessage.warning(t("警告私聊已发送，但面板记录未保存，请人工核查"));
     }
   } catch (error) {
     const code = getApiErrorCode(error);
     warningUncertain.value = code === "action_uncertain";
     warningWriteError.value =
       code === "action_uncertain"
-        ? "警告私聊发送结果不确定，可能已送达；请核查本地记录与原 RCON，勿立即重复发送"
+        ? t(
+            "警告私聊发送结果不确定，可能已送达；请核查本地记录与原 RCON，勿立即重复发送"
+          )
         : getApiErrorMessage(error);
     if (
       (code === "stale_server_target" || code === "player_not_online") &&
@@ -467,35 +477,41 @@ async function runExtraAction(player: Player, action: "kill" | "message") {
   const steamId = player.steamId;
   const targetRevision = snapshot.value?.targetRevision;
   if (blocked || !steamId || !targetRevision) {
-    ElMessage.warning(blocked || "请刷新玩家名单后重试");
+    ElMessage.warning(blocked || t("请刷新玩家名单后重试"));
     return;
   }
   let message = "";
   try {
     if (action === "message") {
       const answer = await ElMessageBox.prompt(
-        `确认向 ${player.name}（SteamID：${steamId}）发送私聊？`,
-        "发送私聊",
+        t("确认向 {p0}（SteamID：{p1}）发送私聊？", {
+          p0: player.name,
+          p1: steamId
+        }),
+        t("发送私聊"),
         {
           type: "warning",
-          confirmButtonText: "确认发送",
-          cancelButtonText: "取消",
+          confirmButtonText: t("确认发送"),
+          cancelButtonText: t("取消"),
           inputType: "text",
-          inputPlaceholder: "输入单行消息（1–200 字）",
-          inputValidator: value => validateActionMessage(value) || true
+          inputPlaceholder: t("输入单行消息（1–200 字）"),
+          inputValidator: value => t(validateActionMessage(value)) || true
         }
       );
       const invalid = validateActionMessage(answer.value);
-      if (invalid) return void ElMessage.warning(invalid);
+      if (invalid) return void ElMessage.warning(t(invalid));
       message = answer.value.trim();
     } else {
       await ElMessageBox.confirm(
-        `确认击杀 ${player.name}（SteamID：${steamId}）的当前角色？玩家可正常重生，此操作不会踢出或封禁。`,
-        "击杀玩家",
+        t(
+          "确认击杀 {p0}（SteamID：{p1}）的当前角色？玩家可正常重生，此操作不会踢出或封禁。",
+          { p0: player.name, p1: steamId }
+        ),
+        t("击杀玩家"),
         {
           type: "warning",
-          confirmButtonText: "确认击杀",
-          cancelButtonText: "取消"
+          confirmButtonText: t("确认击杀"),
+          cancelButtonText: t("取消")
         }
       );
     }
@@ -506,7 +522,7 @@ async function runExtraAction(player: Player, action: "kill" | "message") {
   const latestBlock = extraDisabledReason(player, action);
   if (latestBlock || !samePlayerAndTarget(player, targetRevision)) {
     ElMessage.warning(
-      latestBlock || "玩家名单或服务器目标已变化，请刷新后重试"
+      latestBlock || t("玩家名单或服务器目标已变化，请刷新后重试")
     );
     return;
   }
@@ -518,7 +534,9 @@ async function runExtraAction(player: Player, action: "kill" | "message") {
     } else {
       await messagePlayer({ steamId, message, targetRevision });
     }
-    ElMessage.success(action === "kill" ? "击杀命令已执行" : "私聊命令已执行");
+    ElMessage.success(
+      action === "kill" ? t("击杀命令已执行") : t("私聊命令已执行")
+    );
     await refreshAfterMutation();
   } catch (reason) {
     actionError.value = getApiErrorMessage(reason);
@@ -534,7 +552,7 @@ async function openFactionDialog(player: Player) {
   const blocked = extraDisabledReason(player, "changeFaction");
   const targetRevision = snapshot.value?.targetRevision;
   if (blocked || !targetRevision) {
-    ElMessage.warning(blocked || "请刷新玩家名单后重试");
+    ElMessage.warning(blocked || t("请刷新玩家名单后重试"));
     return;
   }
   factionPlayer.value = player;
@@ -550,7 +568,7 @@ async function openFactionDialog(player: Player) {
     const response = await getServerStatus();
     if (readId !== factionReadId || !factionDialogVisible.value) return;
     if (response.stale || !samePlayerAndTarget(player, targetRevision)) {
-      factionDialogError.value = "阵营数据或玩家名单已变化，请刷新后重试";
+      factionDialogError.value = t("阵营数据或玩家名单已变化，请刷新后重试");
       return;
     }
     factionChoices.value = [
@@ -561,7 +579,7 @@ async function openFactionDialog(player: Player) {
       )
     ];
     if (factionChoices.value.length === 0) {
-      factionDialogError.value = "服务器尚未返回可用阵营";
+      factionDialogError.value = t("服务器尚未返回可用阵营");
     }
   } catch (reason) {
     if (readId === factionReadId)
@@ -578,22 +596,27 @@ async function submitFaction() {
   const faction = chosenFaction.value;
   const respawn = shouldRespawn.value;
   if (!player || !steamId || !factionChoices.value.includes(faction)) {
-    ElMessage.warning("请选择服务器返回的阵营");
+    ElMessage.warning(t("请选择服务器返回的阵营"));
     return;
   }
   const blocked = extraDisabledReason(player, "changeFaction");
   if (blocked || !samePlayerAndTarget(player, targetRevision)) {
-    ElMessage.warning(blocked || "玩家名单或服务器目标已变化，请刷新后重试");
+    ElMessage.warning(blocked || t("玩家名单或服务器目标已变化，请刷新后重试"));
     return;
   }
   try {
     await ElMessageBox.confirm(
-      `确认将 ${player.name}（SteamID：${steamId}）切换至 ${faction}${respawn ? "并重生" : ""}？`,
-      "更换玩家阵营",
+      t("确认将 {p0}（SteamID：{p1}）切换至 {p2}{p3}？", {
+        p0: player.name,
+        p1: steamId,
+        p2: faction,
+        p3: respawn ? t("并重生") : ""
+      }),
+      t("更换玩家阵营"),
       {
         type: "warning",
-        confirmButtonText: "确认更换",
-        cancelButtonText: "取消"
+        confirmButtonText: t("确认更换"),
+        cancelButtonText: t("取消")
       }
     );
   } catch {
@@ -607,7 +630,7 @@ async function submitFaction() {
     chosenFaction.value !== faction ||
     shouldRespawn.value !== respawn
   ) {
-    ElMessage.warning(latestBlock || "玩家或操作选项已变化，请重新确认");
+    ElMessage.warning(latestBlock || t("玩家或操作选项已变化，请重新确认"));
     return;
   }
   actionPending.value = true;
@@ -622,14 +645,14 @@ async function submitFaction() {
     factionDialogVisible.value = false;
     if (respawn && result.respawnUncertain) {
       ElMessage.warning(
-        "阵营已更换，重生结果不确定；请到 RCON 原管理页核查，勿立即重复操作"
+        t("阵营已更换，重生结果不确定；请到 RCON 原管理页核查，勿立即重复操作")
       );
     } else if (respawn && (result.respawnError || result.respawned === false)) {
       ElMessage.warning(
-        "阵营已更换，但重生命令失败；请人工核查，勿立即重复更换"
+        t("阵营已更换，但重生命令失败；请人工核查，勿立即重复更换")
       );
     } else {
-      ElMessage.success("更换阵营命令已执行");
+      ElMessage.success(t("更换阵营命令已执行"));
     }
     await refreshAfterMutation();
   } catch (reason) {
@@ -651,11 +674,11 @@ function validateReason(value: string): true | string {
       code === 0x2028 ||
       code === 0x2029
     ) {
-      return "操作原因只能输入单行文字，不能含换行或控制字符";
+      return t("操作原因只能输入单行文字，不能含换行或控制字符");
     }
   }
   const length = value.trim().length;
-  return length >= 1 && length <= 200 ? true : "操作原因需为 1–200 个字符";
+  return length >= 1 && length <= 200 ? true : t("操作原因需为 1–200 个字符");
 }
 
 async function moderate(player: Player, action: ModerationAction) {
@@ -667,23 +690,23 @@ async function moderate(player: Player, action: ModerationAction) {
   try {
     const answer = await ElMessageBox.prompt(
       isBan
-        ? "确认永久封禁 " +
+        ? t("确认永久封禁 ") +
             player.name +
             "（SteamID：" +
             steamId +
-            "）？此操作会影响真实服务器。"
-        : "确认踢出 " +
+            t("）？此操作会影响真实服务器。")
+        : t("确认踢出 ") +
             player.name +
             "（SteamID：" +
             steamId +
-            "）？此操作会影响真实服务器。",
-      isBan ? "永久封禁玩家" : "踢出玩家",
+            t("）？此操作会影响真实服务器。"),
+      isBan ? t("永久封禁玩家") : t("踢出玩家"),
       {
         type: "warning",
-        confirmButtonText: isBan ? "确认永久封禁" : "确认踢出",
-        cancelButtonText: "取消",
+        confirmButtonText: isBan ? t("确认永久封禁") : t("确认踢出"),
+        cancelButtonText: t("取消"),
         inputType: "text",
-        inputPlaceholder: "填写单行操作原因（1–200 字）",
+        inputPlaceholder: t("填写单行操作原因（1–200 字）"),
         inputValidator: validateReason
       }
     );
@@ -710,7 +733,7 @@ async function moderate(player: Player, action: ModerationAction) {
     !currentPlayer ||
     currentPlayer.name !== player.name
   ) {
-    ElMessage.warning("玩家名单或服务器目标已变化，请刷新名单后重新确认");
+    ElMessage.warning(t("玩家名单或服务器目标已变化，请刷新名单后重新确认"));
     return;
   }
   actionPending.value = true;
@@ -722,7 +745,7 @@ async function moderate(player: Player, action: ModerationAction) {
     } else {
       await kickPlayer(request);
     }
-    ElMessage.success(isBan ? "永久封禁命令已执行" : "踢出命令已执行");
+    ElMessage.success(isBan ? t("永久封禁命令已执行") : t("踢出命令已执行"));
     await refreshAfterMutation();
   } catch (error) {
     actionError.value = getApiErrorMessage(error);
@@ -810,12 +833,14 @@ onUnmounted(stop);
   <div class="p-5 space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold">在线玩家</h1>
+        <h1 class="text-2xl font-semibold">{{ $t("在线玩家") }}</h1>
         <p class="text-sm text-gray-500">
-          约每 5 秒查询一次玩家名单；隐藏页面时暂停查询
+          {{ $t("约每 5 秒查询一次玩家名单；隐藏页面时暂停查询") }}
         </p>
       </div>
-      <el-button :loading="loading" @click="refresh">刷新玩家</el-button>
+      <el-button :loading="loading" @click="refresh">{{
+        $t("刷新玩家")
+      }}</el-button>
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -827,7 +852,7 @@ onUnmounted(stop);
     />
     <el-alert
       v-if="snapshot?.stale"
-      title="当前显示的是过期玩家快照，管理操作已停用，请先刷新"
+      :title="$t('当前显示的是过期玩家快照，管理操作已停用，请先刷新')"
       type="warning"
       :closable="false"
     />
@@ -835,7 +860,9 @@ onUnmounted(stop);
       v-if="
         capabilityError || (capabilities && capabilities.state !== 'available')
       "
-      :title="capabilityError || '管理能力尚未确认可用，踢出与封禁操作已停用'"
+      :title="
+        capabilityError || $t('管理能力尚未确认可用，踢出与封禁操作已停用')
+      "
       type="warning"
       :closable="false"
     />
@@ -843,9 +870,10 @@ onUnmounted(stop);
     <el-card shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <span>阵营人数</span>
+          <span>{{ $t("阵营人数") }}</span>
           <span class="text-sm text-gray-500">
-            采集时间：{{ formatObservedAt(snapshot?.observedAt ?? null) }}
+            {{ $t("采集时间：")
+            }}{{ formatObservedAt(snapshot?.observedAt ?? null) }}
           </span>
         </div>
       </template>
@@ -855,10 +883,13 @@ onUnmounted(stop);
     <el-card shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <span>玩家列表</span>
+          <span>{{ $t("玩家列表") }}</span>
           <span class="text-sm text-gray-500">
-            {{ snapshot ? snapshot.players.length + " 人" : "人数未知" }} ·
-            采集时间：{{ formatObservedAt(snapshot?.observedAt ?? null) }}
+            {{
+              snapshot ? snapshot.players.length + $t(" 人") : $t("人数未知")
+            }}
+            {{ $t("· 采集时间：")
+            }}{{ formatObservedAt(snapshot?.observedAt ?? null) }}
           </span>
         </div>
       </template>
@@ -867,19 +898,19 @@ onUnmounted(stop);
         v-model="search"
         class="mb-4 max-w-sm"
         clearable
-        placeholder="搜索玩家姓名或 SteamID"
+        :placeholder="$t('搜索玩家姓名或 SteamID')"
         :disabled="!snapshot"
       />
 
       <el-skeleton v-if="loading && !snapshot" :rows="6" animated />
-      <el-empty v-else-if="!snapshot" description="尚无可用的玩家快照" />
+      <el-empty v-else-if="!snapshot" :description="$t('尚无可用的玩家快照')" />
       <el-empty
         v-else-if="snapshot.players.length === 0"
-        description="当前无人在线"
+        :description="$t('当前无人在线')"
       />
       <el-empty
         v-else-if="visiblePlayers.length === 0"
-        description="未找到匹配玩家"
+        :description="$t('未找到匹配玩家')"
       />
       <div v-else class="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         <section
@@ -902,8 +933,8 @@ onUnmounted(stop);
             <span class="text-sm text-gray-500">
               {{
                 search.trim()
-                  ? group.players.length + " / " + group.total + " 人"
-                  : group.total + " 人"
+                  ? group.players.length + " / " + group.total + $t(" 人")
+                  : group.total + $t(" 人")
               }}
             </span>
           </div>
@@ -918,7 +949,7 @@ onUnmounted(stop);
               v-if="group.players.length === 0"
               class="rounded-lg border border-dashed border-[var(--el-border-color)] p-4 text-center text-sm text-gray-500"
             >
-              {{ search.trim() ? "暂无匹配玩家" : "当前无人在线" }}
+              {{ search.trim() ? $t("暂无匹配玩家") : $t("当前无人在线") }}
             </p>
             <PlayerCard
               v-for="entry in group.players"
@@ -933,9 +964,17 @@ onUnmounted(stop);
               :show-faction="group.unknown"
               :show-kick="Boolean(userStore.canKick)"
               :show-ban="Boolean(userStore.canBan)"
-              :show-extra="userStore.role === 'owner' || ['kill', 'message', 'changeFaction'].some(permission => userStore.permissions.includes(permission))"
+              :show-extra="
+                userStore.role === 'owner' ||
+                ['kill', 'message', 'changeFaction'].some(permission =>
+                  userStore.permissions.includes(permission)
+                )
+              "
               :show-warning-history="true"
-              :show-warning-action="userStore.role === 'owner' || userStore.permissions.includes('warning')"
+              :show-warning-action="
+                userStore.role === 'owner' ||
+                userStore.permissions.includes('warning')
+              "
               :kick-disabled-reason="disabledReason(entry.player, 'kick')"
               :ban-disabled-reason="disabledReason(entry.player, 'ban')"
               :kill-disabled-reason="extraDisabledReason(entry.player, 'kill')"
@@ -962,7 +1001,7 @@ onUnmounted(stop);
 
     <el-dialog
       v-model="warningDialogVisible"
-      title="玩家警告"
+      :title="$t('玩家警告')"
       width="min(680px, 94vw)"
       :close-on-click-modal="false"
       @close="++warningReadId"
@@ -971,7 +1010,7 @@ onUnmounted(stop);
         {{ warningPlayer?.name }} · SteamID：{{ warningPlayer?.steamId }}
       </p>
       <p class="mb-3 text-sm text-gray-500">
-        警告通过 RCON 私聊发送，并在面板本地记录；不是游戏原生处罚。
+        {{ $t("警告通过 RCON 私聊发送，并在面板本地记录；不是游戏原生处罚。") }}
       </p>
       <el-alert
         v-if="warningDialogError"
@@ -988,17 +1027,25 @@ onUnmounted(stop);
         class="mb-3"
       />
 
-      <div v-if="userStore.role === 'owner' || userStore.permissions.includes('warning')" class="mb-5">
+      <div
+        v-if="
+          userStore.role === 'owner' ||
+          userStore.permissions.includes('warning')
+        "
+        class="mb-5"
+      >
         <el-input
           v-model="warningReason"
           maxlength="180"
           show-word-limit
-          placeholder="输入单行警告原因（1–180 字）"
+          :placeholder="$t('输入单行警告原因（1–180 字）')"
           :disabled="actionPending"
         />
         <div class="mt-3">
           <el-tooltip
-            :content="warningWriteBlockedReason() || '发送警告私聊并记入面板'"
+            :content="
+              warningWriteBlockedReason() || $t('发送警告私聊并记入面板')
+            "
           >
             <span>
               <el-button
@@ -1008,7 +1055,7 @@ onUnmounted(stop);
                   Boolean(warningWriteBlockedReason()) || !warningReason.trim()
                 "
                 @click="submitWarning"
-                >发送警告并记录</el-button
+                >{{ $t("发送警告并记录") }}</el-button
               >
             </span>
           </el-tooltip>
@@ -1017,35 +1064,35 @@ onUnmounted(stop);
 
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span class="font-medium">
-          已成功发送 {{ warningHistory?.count ?? "—" }} 次
+          {{ $t("已成功发送") }} {{ warningHistory?.count ?? "—" }}
+          {{ $t("次") }}
         </span>
         <span class="text-xs text-gray-500">
-          面板本地记录 · 采集时间：{{
-            formatObservedAt(warningHistory?.observedAt ?? null)
-          }}
+          {{ $t("面板本地记录 · 采集时间：")
+          }}{{ formatObservedAt(warningHistory?.observedAt ?? null) }}
         </span>
       </div>
       <el-skeleton v-if="warningDialogLoading" :rows="3" animated />
       <el-table
         v-else-if="warningHistory"
         :data="warningHistory.entries"
-        empty-text="暂无警告记录"
+        :empty-text="$t('暂无警告记录')"
         size="small"
         max-height="300"
       >
-        <el-table-column label="时间" min-width="155">
+        <el-table-column :label="$t('时间')" min-width="155">
           <template #default="scope">{{
             formatObservedAt(scope.row.createdAt)
           }}</template>
         </el-table-column>
-        <el-table-column prop="actor" label="处理人" min-width="100" />
+        <el-table-column prop="actor" :label="$t('处理人')" min-width="100" />
         <el-table-column
           prop="reason"
-          label="原因"
+          :label="$t('原因')"
           min-width="190"
           show-overflow-tooltip
         />
-        <el-table-column label="结果" min-width="100">
+        <el-table-column :label="$t('结果')" min-width="100">
           <template #default="scope">
             <el-tag :type="warningOutcomeType(scope.row.outcome)">
               {{ warningOutcomeLabel(scope.row.outcome) }}
@@ -1053,15 +1100,17 @@ onUnmounted(stop);
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-else description="尚无可显示的面板警告记录" />
+      <el-empty v-else :description="$t('尚无可显示的面板警告记录')" />
       <template #footer>
-        <el-button @click="warningDialogVisible = false">关闭</el-button>
+        <el-button @click="warningDialogVisible = false">{{
+          $t("关闭")
+        }}</el-button>
       </template>
     </el-dialog>
 
     <el-dialog
       v-model="factionDialogVisible"
-      title="更换玩家阵营"
+      :title="$t('更换玩家阵营')"
       width="min(460px, 94vw)"
       :close-on-click-modal="false"
       @closed="++factionReadId"
@@ -1081,7 +1130,7 @@ onUnmounted(stop);
         class="w-full"
         :loading="factionDialogLoading"
         :disabled="factionDialogLoading || Boolean(factionDialogError)"
-        placeholder="从服务器当前阵营中选择"
+        :placeholder="$t('从服务器当前阵营中选择')"
       >
         <el-option
           v-for="name in factionChoices"
@@ -1090,12 +1139,16 @@ onUnmounted(stop);
           :value="name"
         />
       </el-select>
-      <el-checkbox v-model="shouldRespawn" class="mt-3"
-        >切换后重生玩家</el-checkbox
-      >
-      <p class="mt-1 text-xs text-gray-500">重生会额外发送一条管理命令。</p>
+      <el-checkbox v-model="shouldRespawn" class="mt-3">{{
+        $t("切换后重生玩家")
+      }}</el-checkbox>
+      <p class="mt-1 text-xs text-gray-500">
+        {{ $t("重生会额外发送一条管理命令。") }}
+      </p>
       <template #footer>
-        <el-button @click="factionDialogVisible = false">取消</el-button>
+        <el-button @click="factionDialogVisible = false">{{
+          $t("取消")
+        }}</el-button>
         <el-button
           type="warning"
           :loading="actionPending"
@@ -1105,7 +1158,7 @@ onUnmounted(stop);
             !chosenFaction
           "
           @click="submitFaction"
-          >确认更换</el-button
+          >{{ $t("确认更换") }}</el-button
         >
       </template>
     </el-dialog>

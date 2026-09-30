@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "@/i18n";
 import { onMounted, ref } from "vue";
 import {
   getCapabilities,
@@ -11,14 +12,14 @@ import { formatObservedAt } from "@/api/snapshot";
 defineOptions({ name: "Capabilities" });
 
 const featureLabels: Record<FeatureKey, string> = {
-  status: "服务器状态",
-  players: "在线玩家",
-  rotation: "地图轮换",
-  maps: "地图目录",
-  experiences: "模式目录",
-  lightings: "光照目录",
-  kick: "踢出玩家",
-  ban: "永久封禁玩家"
+  status: t("服务器状态"),
+  players: t("在线玩家"),
+  rotation: t("地图轮换"),
+  maps: t("地图目录"),
+  experiences: t("模式目录"),
+  lightings: t("光照目录"),
+  kick: t("踢出玩家"),
+  ban: t("永久封禁玩家")
 };
 const featureKeys = Object.keys(featureLabels) as FeatureKey[];
 
@@ -28,9 +29,9 @@ const error = ref("");
 
 function availability(feature: FeatureKey) {
   const value = capabilities.value?.features[feature];
-  if (value === true) return { label: "支持", type: "success" as const };
-  if (value === false) return { label: "不支持", type: "info" as const };
-  return { label: "未知", type: "warning" as const };
+  if (value === true) return { label: t("支持"), type: "success" as const };
+  if (value === false) return { label: t("不支持"), type: "info" as const };
+  return { label: t("未知"), type: "warning" as const };
 }
 
 async function refresh() {
@@ -54,24 +55,26 @@ onMounted(refresh);
   <div class="p-5 space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold">服务器能力</h1>
+        <h1 class="text-2xl font-semibold">{{ $t("服务器能力") }}</h1>
         <p class="text-sm text-gray-500">
-          能力状态来自目标服务器的查询与管理能力探测
+          {{ $t("能力状态来自目标服务器的查询与管理能力探测") }}
         </p>
       </div>
-      <el-button :loading="loading" @click="refresh">重新探测</el-button>
+      <el-button :loading="loading" @click="refresh">{{
+        $t("重新探测")
+      }}</el-button>
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-alert
       v-if="capabilities?.state === 'stale'"
-      title="探测信息已过期，以下结果仅代表上次成功读取"
+      :title="$t('探测信息已过期，以下结果仅代表上次成功读取')"
       type="warning"
       :closable="false"
     />
     <el-alert
       v-if="capabilities?.state === 'unavailable'"
-      title="尚未成功探测服务器能力，不能判断是否支持"
+      :title="$t('尚未成功探测服务器能力，不能判断是否支持')"
       type="info"
       :closable="false"
     />
@@ -79,14 +82,18 @@ onMounted(refresh);
     <el-card shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <span>服务器能力</span>
+          <span>{{ $t("服务器能力") }}</span>
           <span class="text-sm text-gray-500">
-            探测时间：{{ formatObservedAt(capabilities?.observedAt ?? null) }}
+            {{ $t("探测时间：")
+            }}{{ formatObservedAt(capabilities?.observedAt ?? null) }}
           </span>
         </div>
       </template>
       <el-skeleton v-if="loading && !capabilities" :rows="6" animated />
-      <el-empty v-else-if="!capabilities" description="尚无能力探测结果" />
+      <el-empty
+        v-else-if="!capabilities"
+        :description="$t('尚无能力探测结果')"
+      />
       <div v-else class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div
           v-for="feature in featureKeys"
@@ -95,7 +102,7 @@ onMounted(refresh);
         >
           <span>{{ featureLabels[feature] }}</span>
           <el-tag :type="availability(feature).type">
-            {{ availability(feature).label }}
+            {{ $t(availability(feature).label) }}
           </el-tag>
         </div>
       </div>

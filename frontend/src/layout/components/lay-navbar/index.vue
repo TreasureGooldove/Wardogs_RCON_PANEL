@@ -2,6 +2,7 @@
 import { useNav } from "@/layout/hooks/useNav";
 import LaySearch from "../lay-search/index.vue";
 import PanelUpdates from "@/components/PanelUpdates.vue";
+import LanguageSelector from "@/components/LanguageSelector.vue";
 import LayNavMix from "../lay-sidebar/NavMix.vue";
 import LaySidebarFullScreen from "../lay-sidebar/components/SidebarFullScreen.vue";
 import LaySidebarBreadCrumb from "../lay-sidebar/components/SidebarBreadCrumb.vue";
@@ -38,8 +39,15 @@ const {
     />
 
     <LayNavMix v-if="layout === 'mix'" />
+    <div
+      v-if="layout !== 'vertical'"
+      class="float-right flex h-12 items-center"
+    >
+      <LanguageSelector />
+    </div>
 
     <div v-if="layout === 'vertical'" class="vertical-header-right">
+      <LanguageSelector />
       <PanelUpdates />
       <!-- 菜单搜索 -->
       <LaySearch id="header-search" />
@@ -52,7 +60,8 @@ const {
             class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white"
             :style="avatarsStyle"
             aria-hidden="true"
-          >{{ userAvatar }}</span>
+            >{{ userAvatar }}</span
+          >
           <p v-if="username" class="dark:text-white">{{ username }}</p>
         </span>
         <template #dropdown>
@@ -62,14 +71,14 @@ const {
                 :icon="LogoutCircleRLine"
                 style="margin: 5px"
               />
-              退出系统
+              {{ $t("退出系统") }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
       <span
         class="set-icon navbar-bg-hover"
-        title="打开系统配置"
+        :title="$t('打开系统配置')"
         @click="onPanel"
       >
         <IconifyIconOffline :icon="Setting" />
