@@ -239,6 +239,7 @@ COPY backend/app /srv/backend/app
 COPY backend/pyproject.toml /srv/backend/pyproject.toml
 RUN python -m pip install --no-cache-dir /srv/backend "uvicorn[standard]>=0.30,<1"
 COPY frontend/dist /srv/frontend/dist
+RUN chmod -R a+rX /srv/backend/app /srv/frontend/dist /srv/backend/pyproject.toml
 USER 10001:10001
 ''')
             image = 'wardogs-rcon-panel:update-' + job_id
