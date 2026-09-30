@@ -4,6 +4,8 @@
 
 > ⚠️ **This project is still under development. Back up your server configuration and data before use, and verify write operations in a controlled environment.**
 
+> 🤖 **AI-friendly**: If you are unfamiliar with deployment, you can give this project to DeepSeek Harness to help install it.
+
 A self-hosted management panel for a Wardogs dedicated server. The frontend uses Vue 3, TypeScript, and Element Plus; the backend uses FastAPI and SQLite. The browser talks only to the panel API, while RCON credentials stay on the server.
 
 > 💬 **Community:** WarDogs战狗 超级猫猫服务器社区群 · QQ group **1108826972**. Players and server administrators are welcome.
