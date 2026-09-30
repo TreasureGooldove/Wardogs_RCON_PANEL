@@ -27,7 +27,6 @@ class HistoryStore:
 
     def initialize(self) -> None:
         with self.db._connect() as db:
-            migrate_stats = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_totals'").fetchone() is None
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS observed_matches (
                     id TEXT PRIMARY KEY, origin TEXT NOT NULL, map TEXT,
@@ -56,11 +55,13 @@ class HistoryStore:
                     PRIMARY KEY(origin, steam_id)
                 );
             """)
-            if migrate_stats:
-                # Old records contain one last snapshot per observed match.
-                # Backfill those available values, never invent missing samples.
-                for row in db.execute("SELECT p.*,m.origin FROM observed_players p JOIN observed_matches m ON m.id=p.match_id ORDER BY p.last_seen,p.match_id").fetchall():
-                    self._stats(db, row['origin'], row['match_id'], dict(row))
+            # Missing rollups are recovered even if startup was interrupted;
+            # existing totals are never replayed on restart.
+            rows = db.execute("""SELECT p.*,m.origin FROM observed_players p JOIN observed_matches m ON m.id=p.match_id
+                WHERE NOT EXISTS(SELECT 1 FROM player_totals t WHERE t.origin=m.origin AND t.steam_id=p.steam_id)
+                ORDER BY p.last_seen,p.match_id""").fetchall()
+            for row in rows:
+                self._stats(db, row['origin'], row['match_id'], dict(row))
 
     @staticmethod
     def _stats(db, origin, match_id, player):

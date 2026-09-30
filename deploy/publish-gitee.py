@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Publish sanitized GitHub assets to Gitee Release and fallback branch."""
 import argparse
-import base64
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -10,8 +9,9 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 from urllib.request import Request, urlopen
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -29,18 +29,21 @@ def api(path, token, payload=None, *, method=None, multipart=None):
         body += data + f'\r\n--{boundary}--\r\n'.encode()
         headers['Content-Type'] = 'multipart/form-data; boundary=' + boundary
     else:
-        body = json.dumps({**(payload or {}), 'access_token': token}).encode() if method or payload is not None else None
-        headers['Content-Type'] = 'application/json'
+        values = {**(payload or {}), 'access_token': token}
+        body = urlencode({k: str(v).lower() if isinstance(v, bool) else v for k, v in values.items()}).encode() if method or payload is not None else None
+        headers['Content-Type'] = 'application/x-www-form-urlencoded'
         headers['Authorization'] = 'Bearer ' + token
     try:
         url = API + path
         if body is None:
             url += ('&' if '?' in url else '?') + urlencode({'access_token': token})
-        with urlopen(Request(url, body, headers, method=method), timeout=60) as response:
+        with urlopen(Request(url, body, headers, method=method), timeout=180) as response:
             return json.load(response)
     except HTTPError as exc:
         # Never print request headers, token-bearing body or upstream free text.
         raise RuntimeError('Gitee HTTP ' + str(exc.code)) from None
+    except (URLError, TimeoutError):
+        raise RuntimeError('Gitee network request failed; inspect remote state before retrying') from None
 
 
 def publish(token, version, package, checksums, notes):
@@ -51,25 +54,31 @@ def publish(token, version, package, checksums, notes):
     if not re.search(r'(?m)^' + digest + r'\s+\*?' + re.escape(package.name) + r'\s*$', checksums.read_text()):
         raise ValueError('checksum_mismatch')
     # Fallback branch is updated only by the publisher with prebuilt artifacts.
-    branches = api('/branches?per_page=100', token)
-    if not any(item.get('name') == 'updates' for item in branches):
-        api('/branches', token, {'branch_name': 'updates', 'refs': 'main'})
-    def content(path, payload):
-        existing = None
-        try:
-            existing = api('/contents/' + path + '?ref=updates', token)
-        except RuntimeError as exc:
-            if str(exc) != 'Gitee HTTP 404':
-                raise
-        encoded = base64.b64encode(payload).decode()
-        values = {'branch': 'updates', 'message': '发布更新包 ' + version, 'content': encoded}
-        if existing:
-            values['sha'] = existing['sha']
-        api('/contents/' + path, token, values, method='PUT' if existing else 'POST')
-    content('packages/' + package.name, data)
     manifest = {'version': version, 'url': REPO_URL + '/raw/updates/packages/' + package.name,
                 'sha256': digest, 'publishedAt': datetime.now(timezone.utc).isoformat()}
-    content('latest.json', json.dumps(manifest, indent=2).encode())
+    # Publish binary artifacts over Git, avoiding the contents API's body limits.
+    # CI supplies GIT_ASKPASS; it reads only the protected environment secret.
+    if not os.environ.get('GIT_ASKPASS'):
+        raise RuntimeError('Configure GIT_ASKPASS for authenticated Git publication')
+    with tempfile.TemporaryDirectory(prefix='wardogs-gitee-') as temporary:
+        checkout = Path(temporary) / 'updates'
+        def git(*args):
+            result = subprocess.run(['git', '-c', 'credential.helper=', *args], cwd=checkout if checkout.exists() else None,
+                                    capture_output=True, text=True, timeout=300)
+            if result.returncode:
+                raise RuntimeError('Gitee Git publication failed')
+            return result.stdout
+        branches = git('ls-remote', '--heads', REPO_URL + '.git', 'updates')
+        git('clone', '--depth', '1', '--single-branch', '--branch', 'updates' if branches.strip() else 'main', REPO_URL + '.git', str(checkout))
+        if not branches.strip():
+            git('checkout', '-b', 'updates')
+        (checkout / 'packages').mkdir(exist_ok=True)
+        (checkout / 'packages' / package.name).write_bytes(data)
+        (checkout / 'latest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+        git('add', 'packages/' + package.name, 'latest.json')
+        if git('diff', '--cached', '--name-only').strip():
+            git('-c', 'user.name=Wardogs Release', '-c', 'user.email=release@users.noreply.github.com', 'commit', '-m', '发布更新包 ' + version)
+            git('push', 'origin', 'HEAD:updates')
     print('Gitee fallback manifest published', flush=True)
     # A partially completed publication is resumed using read-only discovery;
     # never blindly replay create/upload after an uncertain network error.

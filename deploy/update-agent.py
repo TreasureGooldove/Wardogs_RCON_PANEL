@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Root host helper: fixed Docker deployment only; never exposed as HTTP."""
 import argparse
+from contextlib import contextmanager
 import fcntl
 import json
 import hashlib
@@ -125,6 +126,22 @@ def write(path, value):
     temp.replace(path)
 
 
+@contextmanager
+def control_directory(path):
+    if os.name != 'posix':  # Windows unit tests; production requires Linux/fcntl.
+        yield path
+        return
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fchown(fd, 10001, 10001)
+        os.fchmod(fd, 0o700)
+        # Keep all control-file operations anchored to this directory even if
+        # the panel renames its data directory during an update.
+        yield Path('/proc/self/fd/' + str(fd))
+    finally:
+        os.close(fd)
+
+
 def healthy(version):
     for _ in range(30):
         state = command(['docker', 'inspect', 'wardogs-rcon-panel', '--format', '{{.State.Health.Status}}'], timeout=15)
@@ -145,9 +162,8 @@ def run(root):
     if updates.is_symlink():
         raise ValueError('invalid_update_storage')
     updates.mkdir(mode=0o700, exist_ok=True)
-    os.chown(updates, 10001, 10001)
     # Do not follow panel-controlled symlinks when opening a root-owned lock.
-    with os.fdopen(os.open(updates / 'agent.lock', os.O_CREAT | os.O_WRONLY | getattr(os, 'O_NOFOLLOW', 0), 0o600), 'w') as lock:
+    with control_directory(updates) as updates, os.fdopen(os.open(updates / 'agent.lock', os.O_CREAT | os.O_WRONLY | getattr(os, 'O_NOFOLLOW', 0), 0o600), 'w') as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -213,8 +229,10 @@ def run(root):
             os.chmod(backup, 0o600)
             write(job / 'rollback.json', {'image': old_image, 'version': old_version})
             state('building')
+            base_tag = 'wardogs-rcon-panel:base-' + job_id
+            command(['docker', 'tag', old_image, base_tag])
             # Fixed context paths; package deploy scripts/compose/env are not used.
-            (stage / 'Dockerfile').write_text(f'''FROM {old_image}
+            (stage / 'Dockerfile').write_text(f'''FROM {base_tag}
 USER root
 RUN rm -r /srv/backend/app /srv/frontend/dist
 COPY backend/app /srv/backend/app
