@@ -7,7 +7,7 @@ from time import monotonic
 from urllib.parse import urlsplit
 import httpx
 
-APP_VERSION = "0.3.3"
+APP_VERSION = "0.3.4"
 REPOSITORY = "TreasureGooldove/Wardogs_RCON_PANEL"
 GITEE_REPOSITORY = "gooldove/Wardogs_RCON_PANEL"
 RELEASES_URL = f"https://github.com/{REPOSITORY}/releases"
