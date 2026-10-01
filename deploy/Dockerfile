@@ -14,6 +14,10 @@ RUN python -m pip install --no-cache-dir . "uvicorn[standard]>=0.30,<1" \
 
 COPY frontend/dist /srv/frontend/dist
 
+# Source extraction may happen under umask 077; the unprivileged runtime
+# must be able to traverse application directories and read bundled files.
+RUN chmod -R a+rX /srv/backend/app /srv/frontend/dist
+
 USER 10001:10001
 EXPOSE 8000
 
