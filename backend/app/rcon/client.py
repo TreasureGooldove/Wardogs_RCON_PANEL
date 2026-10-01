@@ -4,6 +4,8 @@ import asyncio
 import json
 import logging
 import re
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from time import monotonic
 from typing import Any
 
@@ -32,6 +34,15 @@ class RconClient:
         self._transport = transport
         self._client: httpx.AsyncClient | None = None
         self._semaphore = asyncio.Semaphore(4)
+        self.retry_after = 5.0
+
+    def _hold_hint(self,response):
+        try:
+            value=response.headers.get('retry-after','').strip()
+            seconds=float(int(value)) if value.isdigit() else (parsedate_to_datetime(value)-datetime.now(UTC)).total_seconds()
+            self.retry_after=max(1.0,min(60.0,seconds))
+        except (ValueError,OverflowError,TypeError):
+            self.retry_after=5.0
 
     def _get_client(self) -> httpx.AsyncClient:
         if self.target is None:
@@ -60,7 +71,9 @@ class RconClient:
             await self._client.aclose()
             self._client = None
 
-    async def request(self, route: RouteName) -> dict[str, Any] | list[Any]:
+    async def request(
+        self, route: RouteName, *, response_headers: dict[str, str] | None = None
+    ) -> dict[str, Any] | list[Any]:
         """Fetch a named GET route. No caller-selected path, method or query exists."""
         spec = route_for(route)
         client = self._get_client()
@@ -70,8 +83,12 @@ class RconClient:
         for attempt in range(attempts):
             try:
                 async with self._semaphore:
-                    async with client.stream("GET", spec.path) as response:
+                    headers = {"Cache-Control": "no-cache"} if route is RouteName.CONFIG else None
+                    async with client.stream("GET", spec.path, headers=headers) as response:
                         decoded = await self._decode(response)
+                        if response_headers is not None:
+                            response_headers.clear()
+                            response_headers.update(response.headers)
                 _LOG.info(
                     "Wardogs RCON query completed: route=%s duration_ms=%d result=ok",
                     spec.name.value,
@@ -140,6 +157,7 @@ class RconClient:
         if response.status_code == 404:
             raise PanelError("action_unsupported")
         if response.status_code == 429:
+            self._hold_hint(response)
             raise PanelError("rcon_rate_limited")
         if response.status_code >= 500:
             raise PanelError("action_uncertain")
@@ -177,6 +195,7 @@ class RconClient:
         if response.status_code == 404:
             raise PanelError("route_unsupported")
         if response.status_code == 429:
+            self._hold_hint(response)
             raise PanelError("rcon_rate_limited")
         if not 200 <= response.status_code < 300:
             raise PanelError("rcon_unavailable")

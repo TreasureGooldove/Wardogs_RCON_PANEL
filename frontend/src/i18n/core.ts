@@ -16,7 +16,13 @@ export function translate(
   );
 }
 
-export const LOCALE_CODES = ["zh-CN", "en-US", "ja-JP", "ko-KR"] as const;
+export const LOCALE_CODES = [
+  "zh-CN",
+  "zh-TW",
+  "en-US",
+  "ja-JP",
+  "ko-KR"
+] as const;
 export type LocaleCode = (typeof LOCALE_CODES)[number];
 
 export function normalizeLocale(value: unknown): LocaleCode {

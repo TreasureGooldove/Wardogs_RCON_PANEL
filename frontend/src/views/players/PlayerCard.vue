@@ -237,5 +237,11 @@ function displayNumber(value: number | null) {
     >
       {{ $t("当前账号仅可查看玩家") }}
     </p>
+    <router-link
+      v-if="safeProfileUrl"
+      :to="`/history/players/${player.steamId}`"
+      class="mt-3 inline-block text-sm text-[var(--el-color-primary)]"
+      >{{ $t("玩家档案") }}</router-link
+    >
   </article>
 </template>

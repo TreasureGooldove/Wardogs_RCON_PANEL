@@ -53,7 +53,7 @@ def normalize_players(raw: dict[str, Any] | list[Any]) -> dict[str, Any]:
                 "kills": _nonnegative_int(item.get("kills")),
                 "deaths": _nonnegative_int(item.get("deaths")),
                 "cash": _nonnegative_int(item.get("cash")),
-                "pingMs": _nonnegative_int(item.get("pingMs")),
+                "pingMs": _nonnegative_int(item.get("pingMs") if item.get("pingMs") is not None else item.get("ping")),
             }
         )
     return {"players": result}

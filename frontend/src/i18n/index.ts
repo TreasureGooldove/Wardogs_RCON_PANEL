@@ -1,9 +1,12 @@
 import { computed, ref, type App } from "vue";
 import zh from "./zh-CN.json";
+import zhTW from "./zh-TW.json";
+import antiTW from "./anticheat-zh-TW.json";
 import en from "./en-US.json";
 import ja from "./ja-JP.json";
 import ko from "./ko-KR.json";
 import zhElement from "element-plus/es/locale/lang/zh-cn";
+import zhTWElement from "element-plus/es/locale/lang/zh-tw";
 import enElement from "element-plus/es/locale/lang/en";
 import jaElement from "element-plus/es/locale/lang/ja";
 import koElement from "element-plus/es/locale/lang/ko";
@@ -26,12 +29,14 @@ function savedLocale(): LocaleCode {
 export const locale = ref<LocaleCode>(savedLocale());
 const messages: Record<LocaleCode, Messages> = {
   "zh-CN": zh,
+  "zh-TW": { ...zhTW, ...antiTW },
   "en-US": en,
   "ja-JP": ja,
   "ko-KR": ko
 };
 export const languages = [
   { code: "zh-CN", label: "简体中文", aiTranslated: false },
+  { code: "zh-TW", label: "繁體中文", aiTranslated: false },
   { code: "en-US", label: "English · AI translated", aiTranslated: true },
   { code: "ja-JP", label: "日本語 · AI 翻訳", aiTranslated: true },
   { code: "ko-KR", label: "한국어 · AI 번역", aiTranslated: true }
@@ -43,6 +48,7 @@ export const elementLocale = computed(
   () =>
     ({
       "zh-CN": zhElement,
+      "zh-TW": zhTWElement,
       "en-US": enElement,
       "ja-JP": jaElement,
       "ko-KR": koElement

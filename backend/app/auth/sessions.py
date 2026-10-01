@@ -19,7 +19,7 @@ SESSION_TTL = timedelta(hours=8)
 GRANTABLE_PERMISSIONS = frozenset({
     "unban", "kill", "message", "warning", "changeFaction", "broadcast",
     "changeMap", "endMatch", "restartMatch", "setLighting", "reserved",
-    "config", "rules",
+    "config", "rules", "notes", "audit",
 })
 
 

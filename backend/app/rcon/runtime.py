@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timezone
 import logging
 import secrets
+from time import monotonic
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -51,6 +52,9 @@ class RconRuntime:
         self.settings = settings
         self.database = database
         self.lock = asyncio.Lock()
+        self.watch_until = 0.0
+        self.collector_enabled = False
+        self.cadence = (30.0,30.0)
         self._transport = transport
         self._cipher = _fernet(settings.config_key)
         self._record = database.get_server_settings()
@@ -62,9 +66,15 @@ class RconRuntime:
         self, target: RconTarget | None
     ) -> tuple[RconClient, CapabilityService, ReadService]:
         client = RconClient(target, transport=self._transport)
-        capabilities = CapabilityService(client, ttl_seconds=30)
+        capabilities = CapabilityService(client, ttl_seconds=3600)
         reads = ReadService(client, capabilities)
+        reads.interest = self.touch_interest
+        reads.managed = lambda: self.collector_enabled
+        reads.freshness = lambda route: self.cadence[0 if route is RouteName.PLAYERS else 1]*2+1
         return client, capabilities, reads
+
+    def touch_interest(self):
+        self.watch_until = monotonic()+15
 
     def _target_from_record(self, record: ServerSettingsRecord) -> RconTarget | None:
         if self._cipher is None:

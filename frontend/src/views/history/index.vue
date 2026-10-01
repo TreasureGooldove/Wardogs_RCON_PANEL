@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import PlayerDossier from "@/components/PlayerDossier.vue";
+import KillRecords from "@/components/KillRecords.vue";
 import { t } from "@/i18n";
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getApiErrorMessage } from "@/api/errors";
+import { getApiErrorCode, getApiErrorMessage } from "@/api/errors";
 import { formatObservedAt } from "@/api/snapshot";
 import {
   getHistoryMatch,
@@ -16,6 +18,11 @@ import {
   type PlayerTotals
 } from "@/api/history";
 import { factionDisplay } from "@/utils/factions";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { getCapabilities } from "@/api/capabilities";
+import { banPlayerPermanently } from "@/api/players";
+import { useUserStoreHook } from "@/store/modules/user";
+import { validateActionMessage } from "@/utils/actionSafety";
 
 defineOptions({ name: "HistoryRecords" });
 const route = useRoute();
@@ -29,6 +36,9 @@ const players = ref<HistoryPlayer[]>([]);
 const total = ref(0);
 const matchDetail = ref<MatchDetail | null>(null);
 const playerDetail = ref<PlayerDetail | null>(null);
+const banPending = ref(false);
+const banUncertain = ref(false);
+const userStore = useUserStoreHook();
 let requestId = 0;
 const section = computed(() =>
   route.path.startsWith("/history/matches") ? "matches" : "players"
@@ -49,6 +59,7 @@ async function refresh() {
   error.value = "";
   matchDetail.value = null;
   playerDetail.value = null;
+  banUncertain.value = false;
   try {
     if (route.params.matchId)
       matchDetail.value = await getHistoryMatch(String(route.params.matchId));
@@ -93,6 +104,55 @@ const kd = (row: PlayerTotals) =>
   row.total_kills == null || row.total_deaths == null || row.total_deaths === 0
     ? "—"
     : (row.total_kills / row.total_deaths).toFixed(2);
+
+async function banHistoryPlayer() {
+  const player = playerDetail.value;
+  if (!player || !userStore.canBan || banPending.value || banUncertain.value)
+    return;
+  banPending.value = true;
+  try {
+    const capability = await getCapabilities();
+    if (capability.state !== "available" || capability.features.ban !== true) {
+      ElMessage.warning(t("服务器不支持此管理操作"));
+      return;
+    }
+    let reason: string;
+    try {
+      const answer = await ElMessageBox.prompt(
+        t("确认永久封禁 ") +
+          player.name +
+          "（SteamID：" +
+          player.steamId +
+          t("）？此操作会影响真实服务器。"),
+        t("永久封禁玩家"),
+        {
+          type: "warning",
+          confirmButtonText: t("确认永久封禁"),
+          cancelButtonText: t("取消"),
+          inputPlaceholder: t("填写单行操作原因（1–200 字）"),
+          inputValidator: value => t(validateActionMessage(value)) || true
+        }
+      );
+      reason = answer.value.trim();
+    } catch {
+      return;
+    }
+    if (!userStore.canBan || playerDetail.value !== player) return;
+    await banPlayerPermanently({
+      steamId: player.steamId,
+      reason,
+      targetRevision: player.targetRevision
+    });
+    ElMessage.success(t("永久封禁命令已执行"));
+  } catch (cause) {
+    error.value = getApiErrorMessage(cause);
+    // An uncertain write is not safe to retry from the same detail view.
+    banUncertain.value = getApiErrorCode(cause) === "action_uncertain";
+    ElMessage.error(error.value);
+  } finally {
+    banPending.value = false;
+  }
+}
 </script>
 
 <template>
@@ -110,7 +170,7 @@ const kd = (row: PlayerTotals) =>
         </h1>
         <p class="text-sm text-gray-500">
           {{
-            $t("每 5 秒保存一次成功取得的 RCON 快照；时间和对局边界均为观测值")
+            $t("按 warcon 分档频率采集真实 RCON 快照；时间和对局边界均为观测值")
           }}
         </p>
       </div>
@@ -142,6 +202,14 @@ const kd = (row: PlayerTotals) =>
       <el-button v-if="detail" @click="router.back()">{{
         $t("返回")
       }}</el-button>
+      <el-button
+        v-if="playerDetail && userStore.canBan"
+        type="danger"
+        :loading="banPending"
+        :disabled="banUncertain || loading"
+        @click="banHistoryPlayer"
+        >{{ $t("永久封禁") }}</el-button
+      >
     </div>
     <el-card v-if="route.params.matchId" v-loading="loading" shadow="never">
       <template #header
@@ -415,5 +483,14 @@ const kd = (row: PlayerTotals) =>
         @current-change="pageChange"
       />
     </el-card>
+    <PlayerDossier
+      v-if="route.params.steamId"
+      :key="String(route.params.steamId)"
+      :steam-id="String(route.params.steamId)"
+    /><KillRecords
+      v-if="route.params.matchId"
+      :key="String(route.params.matchId)"
+      :match-id="String(route.params.matchId)"
+    />
   </div>
 </template>

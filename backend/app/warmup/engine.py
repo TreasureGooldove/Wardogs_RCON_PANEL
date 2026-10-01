@@ -67,7 +67,8 @@ class WarmupEngine:
         }
 
     def _fresh(self) -> bool:
-        return bool(self._observed_at and monotonic() - self._observed_at <= 15)
+        max_age=max(15,2*getattr(self.runtime,'cadence',(5,5))[0]+1)
+        return bool(self._observed_at and monotonic() - self._observed_at <= max_age)
 
     async def _send_pending(self, origin: str) -> None:
         run = self.store.latest(origin)
@@ -149,6 +150,7 @@ class WarmupEngine:
                 reset_minutes=config["reset_minutes"],
                 player_threshold=config["player_threshold"],
                 now=datetime.now(UTC), first_sample=first_sample,
+                max_sample_gap=max(15,2*getattr(self.runtime,'cadence',(5,5))[0]+1),
             )
             if not crossed or self.store.blocked(origin):
                 return

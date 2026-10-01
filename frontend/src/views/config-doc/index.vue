@@ -46,11 +46,7 @@ const dirty = computed(
   () => document.value !== null && draft.value !== document.value.text
 );
 const canWrite = computed(
-  () =>
-    document.value?.writable === true &&
-    document.value.consistency?.ok === true &&
-    !loading.value &&
-    !saving.value
+  () => document.value?.writable === true && !loading.value && !saving.value
 );
 const diff = computed(() =>
   document.value && configDebug.value && dirty.value
@@ -341,28 +337,7 @@ onUnmounted(() => {
     </div>
 
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
-    <el-alert
-      v-if="document && !document.consistency?.ok"
-      :title="
-        $t(
-          '官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入'
-        )
-      "
-      type="error"
-      :closable="false"
-      show-icon
-    >
-      {{
-        $t(
-          "配置文本封禁人数：{p0}；实时封禁人数：{p1}。下方仅用于排查，不能编辑、验证、下载或应用。",
-          {
-            p0: document.consistency?.configuredBannedCount ?? "—",
-            p1: document.consistency?.liveBannedCount ?? "—"
-          }
-        )
-      }}
-    </el-alert>
-    <el-card v-if="document?.consistency?.ok" shadow="never">
+    <el-card v-if="document" shadow="never">
       <template #header>{{ $t("实机配置项") }}</template>
       <p class="mb-4 text-sm text-gray-500">
         {{

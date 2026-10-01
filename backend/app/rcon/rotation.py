@@ -13,6 +13,7 @@ def normalize_rotation(raw: dict[str, Any] | list[Any]) -> dict[str, Any]:
     elif isinstance(raw, dict):
         items = raw.get("entries", raw.get("items"))
         candidate_mode = raw.get("mode")
+        if isinstance(candidate_mode,str):candidate_mode=candidate_mode.lower()
         mode = candidate_mode if candidate_mode in ("ordered", "random") else "unknown"
         enabled = raw.get("enabled") if isinstance(raw.get("enabled"), bool) else None
     else:

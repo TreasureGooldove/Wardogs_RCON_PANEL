@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import RulesPreview from "@/components/RulesPreview.vue";
 import { t } from "@/i18n";
 import { computed, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -298,5 +299,6 @@ onMounted(refresh);
         >
       </el-table>
     </el-card>
+    <RulesPreview v-if="config" :config="config" />
   </div>
 </template>

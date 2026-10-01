@@ -90,7 +90,7 @@ function refreshAll() {
 
 function startTimer() {
   if (!timer && document.visibilityState === "visible") {
-    timer = setInterval(() => void refresh(), 45_000);
+    timer = setInterval(() => void refresh(), 2_000);
   }
 }
 
@@ -134,7 +134,7 @@ onUnmounted(stop);
       <div>
         <h1 class="text-2xl font-semibold">{{ $t("服务器概况") }}</h1>
         <p class="text-sm text-gray-500">
-          {{ $t("服务器状态每 45 秒刷新，阵营人数约每 5 秒刷新") }}
+          {{ $t("共享采集：有人查看时玩家每 1 秒、状态每 2 秒刷新") }}
         </p>
       </div>
       <el-button :loading="loading || playerLoading" @click="refreshAll">{{

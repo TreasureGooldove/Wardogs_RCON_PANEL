@@ -41,3 +41,10 @@ async def profiles(request: Request) -> dict[str, list[dict[str, str | None]]]:
     ids = await _steam_ids(request)
     service: SteamProfileService = request.app.state.steam_service
     return {"profiles": await service.profiles(ids)}
+
+
+@router.post("/risk", dependencies=[Depends(require_admin)])
+async def risk(request: Request):
+    request.app.state.auth_service.check_origin(request)
+    ids = await _steam_ids(request)
+    return {"items": await request.app.state.steam_risk.lookup(ids)}

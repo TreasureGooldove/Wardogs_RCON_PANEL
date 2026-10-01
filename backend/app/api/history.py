@@ -56,7 +56,10 @@ async def player(steam_id: str, request: Request, response: Response) -> dict:
     _no_store(response)
     if re.fullmatch(r"[1-9][0-9]{16}", steam_id) is None:
         raise HTTPException(404)
-    result = request.app.state.history_store.player(await _origin(request), steam_id)
-    if result is None:
-        raise HTTPException(404)
-    return result
+    runtime = request.app.state.rcon_runtime
+    async with runtime.lock:
+        target = runtime.target
+        result = request.app.state.history_store.player(target.origin if target else "", steam_id)
+        if result is None:
+            raise HTTPException(404)
+        return {**result, "targetRevision": runtime.target_revision}

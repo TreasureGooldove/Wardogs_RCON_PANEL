@@ -38,8 +38,14 @@ import { getApiErrorCode, getApiErrorMessage } from "@/api/errors";
 import { formatObservedAt } from "@/api/snapshot";
 import { useUserStoreHook } from "@/store/modules/user";
 import { validateActionMessage, validateMapId } from "@/utils/actionSafety";
+import BanPlayerLookup from "@/components/BanPlayerLookup.vue";
 
 defineOptions({ name: "Actions" });
+
+const props = withDefaults(defineProps<{ bansOnly?: boolean }>(), {
+  bansOnly: false
+});
+const banSearch = ref("");
 
 const userStore = useUserStoreHook();
 const bans = ref<BansResponse | null>(null);
@@ -75,6 +81,9 @@ let capabilityTimer: ReturnType<typeof setInterval> | null = null;
 let capabilityRequest: Promise<void> | null = null;
 
 const targetRevision = computed(() => {
+  if (props.bansOnly) {
+    return bans.value && !bans.value.stale ? bans.value.targetRevision : "";
+  }
   if (
     !bans.value ||
     !audit.value ||
@@ -88,10 +97,21 @@ const targetRevision = computed(() => {
   return bans.value.targetRevision;
 });
 
+const validBans = computed(() =>
+  (bans.value?.bans ?? []).filter(row => /^[1-9][0-9]{16}$/.test(row.steamId))
+);
 const sortedBans = computed(() =>
-  [...(bans.value?.bans ?? [])].sort((left, right) =>
-    left.steamId.localeCompare(right.steamId)
-  )
+  [...validBans.value]
+    .filter(row => {
+      const query = banSearch.value.trim().toLowerCase();
+      return (
+        !query ||
+        [row.steamId, row.reason, row.bannedBy].some(value =>
+          value?.toLowerCase().includes(query)
+        )
+      );
+    })
+    .sort((left, right) => left.steamId.localeCompare(right.steamId))
 );
 
 function blockReason(action: AdvertisedAction): string {
@@ -119,6 +139,20 @@ async function load() {
   capabilities.value = null;
   capabilityFetchedAt.value = 0;
   capabilityError.value = "";
+  if (props.bansOnly) {
+    const results = await Promise.allSettled([getBans(), getCapabilities()]);
+    const errors: string[] = [];
+    if (results[0].status === "fulfilled") bans.value = results[0].value;
+    else errors.push(getApiErrorMessage(results[0].reason));
+    if (results[1].status === "fulfilled") {
+      capabilities.value = results[1].value;
+      capabilityFetchedAt.value = Date.now();
+      capabilityClock.value = Date.now();
+    } else errors.push(getApiErrorMessage(results[1].reason));
+    readError.value = errors.join("；");
+    loading.value = false;
+    return;
+  }
   const results = await Promise.allSettled([
     getBans(),
     getAudit(auditLimit.value),
@@ -301,7 +335,8 @@ function unban(row: BannedPlayer) {
       p0: row.steamId
     }),
     target => unbanPlayer({ steamId: row.steamId, targetRevision: target }),
-    () => bans.value?.bans.some(item => item.steamId === row.steamId) ?? false
+    () => bans.value?.bans.some(item => item.steamId === row.steamId) ?? false,
+    props.bansOnly
   );
 }
 
@@ -418,6 +453,7 @@ function submitLighting() {
 }
 
 function readableTime(value: string | null) {
+  if (value?.startsWith("0001-")) return t("时间未知");
   return formatObservedAt(value);
 }
 
@@ -468,9 +504,17 @@ onUnmounted(deactivate);
   <div class="space-y-5 p-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold">{{ $t("管理操作") }}</h1>
+        <h1 class="text-2xl font-semibold">
+          {{ $t(bansOnly ? "封禁管理" : "管理操作") }}
+        </h1>
         <p class="text-sm text-gray-500">
-          {{ $t("主管理员专用 · 每次写入均需确认") }}
+          {{
+            $t(
+              bansOnly
+                ? "查看服务器封禁记录；解除封禁需要权限和二次确认"
+                : "主管理员专用 · 每次写入均需确认"
+            )
+          }}
         </p>
       </div>
       <el-button :loading="loading" @click="load">{{
@@ -509,7 +553,14 @@ onUnmounted(deactivate);
       :closable="false"
     />
 
-    <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+    <BanPlayerLookup
+      v-if="bansOnly"
+      :banned-ids="validBans.map(row => row.steamId)"
+      :target-revision="targetRevision"
+      @changed="load"
+    />
+
+    <div v-if="!bansOnly" class="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <el-card shadow="never">
         <template #header>{{ $t("全服公告") }}</template>
         <el-input
@@ -595,7 +646,7 @@ onUnmounted(deactivate);
       </el-card>
     </div>
 
-    <el-card shadow="never">
+    <el-card v-if="!bansOnly" shadow="never">
       <template #header>{{ $t("切换地图") }}</template>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <el-select
@@ -674,7 +725,7 @@ onUnmounted(deactivate);
       </div>
     </el-card>
 
-    <el-card shadow="never">
+    <el-card v-if="!bansOnly" shadow="never">
       <template #header>{{ $t("切换当前光照") }}</template>
       <p class="mb-3 text-sm text-gray-500">
         {{ $t("单独切换当前世界光照，不更换地图。") }}
@@ -710,13 +761,22 @@ onUnmounted(deactivate);
     <el-card shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <span>{{ $t("封禁列表") }}</span>
+          <span
+            >{{ $t("封禁列表")
+            }}<template v-if="bans">（{{ validBans.length }}）</template></span
+          >
           <span class="text-xs text-gray-500"
             >{{ $t("采集时间：")
             }}{{ readableTime(bans?.observedAt ?? null) }}</span
           >
         </div>
       </template>
+      <el-input
+        v-model="banSearch"
+        class="mb-4"
+        clearable
+        :placeholder="$t('搜索 SteamID、原因或执行者')"
+      />
       <el-table
         v-if="bans"
         :data="sortedBans"
@@ -763,7 +823,7 @@ onUnmounted(deactivate);
       <el-empty v-else :description="$t('封禁列表尚未读取')" />
     </el-card>
 
-    <el-card shadow="never">
+    <el-card v-if="!bansOnly" shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
           <span>{{ $t("审计记录") }}</span>

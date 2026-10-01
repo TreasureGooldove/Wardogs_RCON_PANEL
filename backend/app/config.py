@@ -100,9 +100,27 @@ class PanelSettings:
     config_key: str | None = field(default=None, repr=False)
     allow_public_http_rcon: bool = False
     history_enabled: bool = False
+    bot_read_token: str | None = field(default=None, repr=False)
+    bot_admin_token: str | None = field(default=None, repr=False)
+    feed_token: str | None = field(default=None, repr=False)
+    feed_origin: str | None = None
+    bot_public_origin: str | None = None
 
     def __post_init__(self) -> None:
+        for token in (self.bot_read_token, self.bot_admin_token, self.feed_token):
+            if token is not None and (len(token) < 32 or not token.isascii() or any(c.isspace() or ord(c) < 33 for c in token)):
+                raise ValueError("bot tokens must contain at least 32 printable ASCII characters")
+        if self.bot_read_token and self.bot_read_token == self.bot_admin_token:
+            raise ValueError("bot read and management tokens must be different")
+        if self.feed_token and self.feed_token in (self.bot_read_token, self.bot_admin_token):
+            raise ValueError("feed and bot credentials must be different")
+        if self.feed_token and not self.feed_origin:
+            raise ValueError("PANEL_FEED_ORIGIN is required with PANEL_FEED_TOKEN")
         scheme, _host = _valid_origin(self.public_origin, allow_http=True)
+        if self.bot_public_origin:
+            _, bot_host = _valid_origin(self.bot_public_origin, allow_http=True)
+            if bot_host.lower() != _host.lower():
+                raise ValueError("bot gateway must use the panel hostname")
         if scheme == "https" and not self.session_secure:
             raise ValueError("HTTPS panel sessions require Secure cookies")
         if scheme == "http" and self.session_secure:
@@ -163,4 +181,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> PanelSettings:
         config_key=values.get("PANEL_CONFIG_KEY") or None,
         allow_public_http_rcon=allow_public_http,
         history_enabled=_bool_env(values.get("PANEL_HISTORY_ENABLED", "true"), "PANEL_HISTORY_ENABLED"),
+        bot_read_token=values.get("PANEL_BOT_READ_TOKEN") or None,
+        bot_admin_token=values.get("PANEL_BOT_ADMIN_TOKEN") or None,
+        feed_token=values.get("PANEL_FEED_TOKEN") or None,
+        feed_origin=values.get("PANEL_FEED_ORIGIN") or None,
+        bot_public_origin=values.get("PANEL_BOT_PUBLIC_ORIGIN") or None,
     )

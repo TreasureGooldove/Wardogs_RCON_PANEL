@@ -55,6 +55,7 @@ export interface MatchDetail extends HistoryMatch {
   players: MatchPlayer[];
 }
 export interface PlayerDetail {
+  targetRevision: string;
   steamId: string;
   name: string;
   matches: MatchPlayer[];

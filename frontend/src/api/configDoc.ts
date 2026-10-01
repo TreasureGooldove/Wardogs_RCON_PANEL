@@ -1,7 +1,7 @@
 import { http } from "@/utils/http";
 
 export interface ConfigDocument {
-  consistency: {
+  consistency?: {
     ok: boolean;
     reason: string | null;
     configuredBannedCount: number;
@@ -40,24 +40,44 @@ export interface ReservedSlots {
   >;
 }
 
-export const getConfigDocument = () =>
-  http.request<ConfigDocument>("get", "/api/server/config");
+export const getConfigDocument = (rotationOnly = false) =>
+  http.request<ConfigDocument>(
+    "get",
+    rotationOnly ? "/api/server/config/rotation" : "/api/server/config"
+  );
 
-export const validateConfigDocument = (text: string, targetRevision: string) =>
-  http.request<ConfigValidation>("post", "/api/server/config/validate", {
-    data: { text, targetRevision }
-  });
+export const validateConfigDocument = (
+  text: string,
+  targetRevision: string,
+  rotationOnly = false
+) =>
+  http.request<ConfigValidation>(
+    "post",
+    rotationOnly
+      ? "/api/server/config/rotation/validate"
+      : "/api/server/config/validate",
+    {
+      data: { text, targetRevision }
+    }
+  );
 
-export const saveConfigDocument = (request: {
-  text: string;
-  revision: string;
-  targetRevision: string;
-  fullApply?: boolean;
-  password: string;
-}) =>
-  http.request<ConfigWriteResult>("put", "/api/server/config", {
-    data: request
-  });
+export const saveConfigDocument = (
+  request: {
+    text: string;
+    revision: string;
+    targetRevision: string;
+    fullApply?: boolean;
+    password: string;
+  },
+  rotationOnly = false
+) =>
+  http.request<ConfigWriteResult>(
+    "put",
+    rotationOnly ? "/api/server/config/rotation" : "/api/server/config",
+    {
+      data: request
+    }
+  );
 
 export const getReservedSlots = () =>
   http.request<ReservedSlots>("get", "/api/server/reserved-slots");

@@ -43,7 +43,7 @@ def normalize_catalog(raw: dict[str, Any] | list[Any], kind: str) -> dict[str, A
                 None,
             )
             label = next(
-                (item[key] for key in ("label", "name", "id") if key in item),
+                (item[key] for key in ("displayName", "label", "name", "id") if key in item),
                 identifier,
             )
         else:

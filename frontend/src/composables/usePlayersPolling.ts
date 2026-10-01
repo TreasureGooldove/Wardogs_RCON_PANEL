@@ -2,7 +2,7 @@ import { onActivated, onDeactivated, onMounted, onUnmounted, ref } from "vue";
 import { getApiErrorMessage } from "@/api/errors";
 import { getPlayers, type PlayersResponse } from "@/api/players";
 
-const PLAYER_POLL_INTERVAL_MS = 5_000;
+const PLAYER_POLL_INTERVAL_MS = 1_000;
 
 export function usePlayersPolling() {
   const snapshot = ref<PlayersResponse | null>(null);

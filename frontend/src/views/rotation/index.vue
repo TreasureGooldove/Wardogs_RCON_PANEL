@@ -120,7 +120,7 @@ async function refresh() {
   }
   if (mayEdit.value) {
     try {
-      config.value = await getConfigDocument();
+      config.value = await getConfigDocument(true);
       draftText.value = config.value.text;
       validation.value = null;
     } catch (reason) {
@@ -188,7 +188,8 @@ async function validateDraft() {
   try {
     validation.value = await validateConfigDocument(
       draftText.value,
-      config.value.targetRevision
+      config.value.targetRevision,
+      true
     );
   } catch (reason) {
     error.value = getApiErrorMessage(reason);
@@ -220,7 +221,8 @@ async function saveDraft() {
   try {
     const checked = await validateConfigDocument(
       draftText.value,
-      current.targetRevision
+      current.targetRevision,
+      true
     );
     validation.value = checked;
     if (checked.ok !== true || (checked.errors?.length ?? 0) > 0) {
@@ -245,12 +247,15 @@ async function saveDraft() {
     } catch {
       return;
     }
-    const result = await saveConfigDocument({
-      text: draftText.value,
-      revision: current.revision,
-      targetRevision: current.targetRevision,
-      password
-    });
+    const result = await saveConfigDocument(
+      {
+        text: draftText.value,
+        revision: current.revision,
+        targetRevision: current.targetRevision,
+        password
+      },
+      true
+    );
     password = "";
     validation.value = result;
     if (result.ok === false) {

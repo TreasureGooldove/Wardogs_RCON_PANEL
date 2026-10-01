@@ -399,31 +399,33 @@ def test_capability_or_writable_gate_denies_config_writes(tmp_path):
             assert not put_calls(calls)
 
 
-def test_missing_config_ban_array_disables_feature_and_all_config_puts(tmp_path):
+def test_runtime_bans_do_not_block_warcon_config_or_reserved_operations(tmp_path):
     app, state, calls = make_panel(tmp_path)
     state['bans'] = [STEAM_B, '00000000000000000']
     with TestClient(app, base_url=PANEL) as client:
         login(client)
         document = client.get('/api/server/config').json()
-        assert document['writable'] is False
-        assert document['consistency'] == {
-            'ok': False, 'reason': 'ban_list_mismatch',
-            'configuredBannedCount': 0, 'liveBannedCount': 1,
-        }
-        payload = {'text': document['text'], 'targetRevision': document['targetRevision']}
+        assert document['writable'] is True
+        assert 'consistency' not in document
+        assert not [c for c in calls if c.url.path == '/v1/bans']
+        payload = {'text': document['text'] + '\r\n; Reviewed draft\r\n',
+                   'targetRevision': document['targetRevision']}
         validate = client.post('/api/server/config/validate', json=payload, headers={'Origin': PANEL})
-        assert validate.status_code == 503
-        assert validate.json()['code'] == 'config_interface_inconsistent'
+        assert validate.status_code == 200
         applied = client.put('/api/server/config', json={**payload, 'revision': document['revision'],
             'password': 'correct horse battery staple'}, headers={'Origin': PANEL})
-        assert applied.status_code == 503
+        assert applied.status_code == 200
+        assert len(put_calls(calls)) == 1
+        assert all(c.headers.get('if-match') == '"rev-1"' for c in put_calls(calls))
+        document = client.get('/api/server/config').json()
         reserved = client.post('/api/server/reserved-slots', json={
             'steamId': STEAM_B, 'revision': document['revision'],
             'targetRevision': document['targetRevision']}, headers={'Origin': PANEL})
-        assert reserved.status_code == 503
-        assert reserved.json()['code'] == 'config_interface_inconsistent'
-        assert not put_calls(calls)
-        assert not [c for c in calls if c.url.path == '/v1/config/validate']
+        assert reserved.status_code == 200
+        assert len(put_calls(calls)) == 2
+        assert reserved_ids_from_text(state['text']) == [STEAM_A, STEAM_B]
+        assert state['bans'] == [STEAM_B, '00000000000000000']
+        assert [c for c in calls if c.url.path == '/v1/config/validate']
 
 
 def test_duplicate_config_bans_match_unique_live_list_and_keep_original_lines(tmp_path):
@@ -435,8 +437,39 @@ def test_duplicate_config_bans_match_unique_live_list_and_keep_original_lines(tm
         login(client)
         document = client.get('/api/server/config').json()
         assert document['writable'] is True
-        assert document['consistency']['ok'] is True
-        assert document['consistency']['configuredBannedCount'] == 1
+        assert 'consistency' not in document
+        assert not [c for c in calls if c.url.path == '/v1/bans']
         assert f'.DefaultBannedPlayerIds={STEAM_B}' in document['text']
         assert f'+DefaultBannedPlayerIds={STEAM_B}' in document['text']
         assert all(c.method == 'GET' for c in calls)
+
+
+def test_rotation_gate_is_scoped_and_cannot_change_other_settings(tmp_path):
+    app, state, calls = make_panel(tmp_path)
+    state['bans'] = [STEAM_B]
+    state['text'] += '[/Script/WDGame.WDServerMapRotationSettings]\r\nbEnabled=true\r\n'
+    with TestClient(app, base_url=PANEL) as client:
+        login(client)
+        document = client.get('/api/server/config/rotation').json()
+        assert document['writable'] is True and 'consistency' not in document
+        payload = {'text': document['text'].replace('bEnabled=true','bEnabled=false'),
+                   'targetRevision': document['targetRevision']}
+        assert client.post('/api/server/config/rotation/validate',json=payload,headers={'Origin':PANEL}).status_code == 200
+        unsafe = {**payload,'text':payload['text'].replace('ServerName=Test Server','ServerName=Changed')}
+        assert client.post('/api/server/config/rotation/validate',json=unsafe,headers={'Origin':PANEL}).status_code == 400
+        result=client.put('/api/server/config/rotation',json={**payload,'revision':document['revision'],
+            'password':'correct horse battery staple'},headers={'Origin':PANEL})
+        assert result.status_code == 200 and len(put_calls(calls)) == 1
+
+
+def test_history_player_returns_revision_for_confirmed_moderation(tmp_path):
+    app, _, calls = make_panel(tmp_path)
+    app.state.history_store.record(RCON, {'map':'Fictional'}, {'players':[
+        {'steamId':STEAM_A,'name':'Example','kills':1,'deaths':2,'cash':10}]})
+    with TestClient(app,base_url=PANEL) as client:
+        login(client)
+        result=client.get('/api/history/players/'+STEAM_A)
+        assert result.status_code == 200
+        assert result.json()['targetRevision'] == app.state.rcon_runtime.target_revision
+        assert result.json()['steamId'] == STEAM_A
+        assert all(call.method == 'GET' for call in calls)

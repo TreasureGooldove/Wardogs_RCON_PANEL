@@ -41,7 +41,9 @@ const permissionOptions = [
   ["setLighting", t("切换光照")],
   ["reserved", t("管理预留位")],
   ["config", t("编辑服务器配置")],
-  ["rules", t("管理服规播报")]
+  ["rules", t("管理服规播报")],
+  ["notes", t("编辑玩家档案与异常提示")],
+  ["audit", t("审计查看与导出")]
 ] as const;
 const createForm = reactive({
   username: "",

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import KillRecords from "@/components/KillRecords.vue";
 import { t } from "@/i18n";
 import {
   computed,
@@ -835,7 +836,7 @@ onUnmounted(stop);
       <div>
         <h1 class="text-2xl font-semibold">{{ $t("在线玩家") }}</h1>
         <p class="text-sm text-gray-500">
-          {{ $t("约每 5 秒查询一次玩家名单；隐藏页面时暂停查询") }}
+          {{ $t("共享玩家快照每 1 秒刷新；隐藏页面时暂停查询") }}
         </p>
       </div>
       <el-button :loading="loading" @click="refresh">{{
@@ -1162,5 +1163,6 @@ onUnmounted(stop);
         >
       </template>
     </el-dialog>
+    <KillRecords />
   </div>
 </template>

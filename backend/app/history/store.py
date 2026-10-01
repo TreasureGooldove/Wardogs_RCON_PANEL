@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.storage.db import Database
+from .community import CommunityStore
+from .awards import AwardsStore
 
 
 def _json(value: object) -> str:
@@ -26,6 +28,8 @@ class HistoryStore:
         self.db = database
 
     def initialize(self) -> None:
+        CommunityStore(self.db).initialize()
+        AwardsStore(self.db).initialize()
         with self.db._connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS observed_matches (
@@ -90,7 +94,7 @@ class HistoryStore:
             total_deaths=excluded.total_deaths,last_deaths=excluded.last_deaths,
             latest_cash=excluded.latest_cash,peak_cash=excluded.peak_cash""", (origin, steam_id, match_id, *values, cash, peak))
 
-    def record(self, origin: str, status: dict, players: dict, at: datetime | None = None) -> str:
+    def record(self, origin: str, status: dict, players: dict, at: datetime | None = None, *, trust_gap: float = 30) -> str:
         """Commit one fresh pair atomically. No missing or stale response reaches this method."""
         stamp = (at or datetime.now(UTC)).astimezone(UTC).isoformat()
         roster = players["players"]
@@ -161,6 +165,8 @@ class HistoryStore:
                     (match_id, steam_id, player["name"], player.get("faction"), stamp, stamp,
                      player.get("kills"), player.get("deaths"), player.get("cash"), player.get("pingMs")),
                 )
+            CommunityStore.observe(db, origin, roster, stamp, trust_gap)
+            AwardsStore.observe(db,origin,match_id,roster,stamp,previous,reason,trust_gap)
         return match_id
 
     def matches(self, origin: str, limit: int, offset: int) -> dict:

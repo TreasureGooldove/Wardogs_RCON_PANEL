@@ -373,7 +373,7 @@ onBeforeUnmount(stopWarmupPolling);
       v-if="snapshot?.writeIssue === 'config_interface_inconsistent'"
       :title="
         $t(
-          '官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入'
+          '官方配置接口与运行数据不一致，仅禁用服务器配置页面写入；预留位操作仍可使用。'
         )
       "
       type="error"

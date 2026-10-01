@@ -7,8 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from app.api.auth import require_admin
 from app.errors import PanelError
-from app.rcon.config_doc import (config_consistency, require_consistent_config,
-                                read_config, send_config, valid_document_text, valid_revision)
+from app.rcon.config_doc import read_config, send_config, valid_document_text, valid_revision
 from app.rcon.config_redaction import (
     public_config_document,
     public_config_result,
@@ -39,7 +38,29 @@ def _target(runtime: Any, revision: str) -> None:
         raise PanelError("stale_server_target")
 
 
+def _rotation_only(request: Request) -> bool:
+    return request.url.path.startswith("/api/server/config/rotation")
+
+
+def _outside_rotation(text: str) -> str:
+    outside = []
+    rotation = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            rotation = stripped[1:-1].casefold() == "/script/wdgame.wdservermaprotationsettings"
+        if not rotation:
+            outside.append(line)
+    return "".join(outside)
+
+
+def _check_rotation_scope(request: Request, text: str, current: str) -> None:
+    if _rotation_only(request) and _outside_rotation(text) != _outside_rotation(current):
+        raise PanelError("invalid_config")
+
+
 @router.get("")
+@router.get("/rotation")
 async def get_config(
     request: Request,
     response: Response,
@@ -52,13 +73,12 @@ async def get_config(
         spec = route_for(RouteName.CONFIG)
         await runtime.capabilities.require_advertised(spec.method, spec.path)
         document = await read_config(runtime.client)
-        consistency = await config_consistency(runtime.client, document)
         return {**public_config_document(document),
-                "writable": document["writable"] and consistency["ok"],
-                "consistency": consistency, "targetRevision": runtime.target_revision}
+                "targetRevision": runtime.target_revision}
 
 
 @router.post("/validate")
+@router.post("/rotation/validate")
 async def validate_config(
     payload: ValidateRequest,
     request: Request,
@@ -76,13 +96,14 @@ async def validate_config(
         read_spec = route_for(RouteName.CONFIG)
         await runtime.capabilities.require_advertised(read_spec.method, read_spec.path)
         current = await read_config(runtime.client)
-        await require_consistent_config(runtime.client, current)
         text = restore_config(payload.text, current["text"], current["revision"])
+        _check_rotation_scope(request, text, current["text"])
         result = await send_config(runtime.client, valid_document_text(text), apply=False)
         return public_config_result(result, payload.text)
 
 
 @router.put("")
+@router.put("/rotation")
 async def apply_config(
     payload: ApplyRequest,
     request: Request,
@@ -101,13 +122,13 @@ async def apply_config(
         read_spec = route_for(RouteName.CONFIG)
         await runtime.capabilities.require_advertised(read_spec.method, read_spec.path)
         current = await read_config(runtime.client)
-        await require_consistent_config(runtime.client, current)
         revision = valid_revision(payload.revision)
         if current["revision"] != revision:
             raise PanelError("config_conflict")
         if not current["writable"]:
             raise PanelError("write_disabled")
         text = restore_config(payload.text, current["text"], revision)
+        _check_rotation_scope(request, text, current["text"])
         if text == current["text"] and not payload.fullApply:
             return {"ok": True, "revision": revision, "changed": [], "outcomes": []}
         validate_spec = write_route_for(WriteName.CONFIG_VALIDATE)

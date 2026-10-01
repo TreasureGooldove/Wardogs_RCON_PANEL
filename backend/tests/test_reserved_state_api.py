@@ -252,3 +252,28 @@ def test_invalid_reserved_ids_in_upstream_config_are_redacted(tmp_path):
         response = client.get("/api/server/reserved-slots")
     assert (response.status_code, response.json()["code"]) == (502, "invalid_upstream")
     assert SECRET not in response.text
+
+
+def test_duplicate_live_slots_and_order_do_not_fail_or_imply_restart(tmp_path):
+    app,_,calls=make_panel(tmp_path,configured=[ID_A,ID_B],live=[ID_B,ID_A,ID_A])
+    with TestClient(app,base_url=PANEL) as client:
+        login(client)
+        response=client.get('/api/server/reserved-slots')
+    assert response.status_code==200
+    assert response.json()['reservedSlots']==[ID_B,ID_A]
+    assert response.json()['pendingRestart'] is False
+    assert all(method=='GET' for method,path in calls)
+
+
+def test_non_string_live_slot_returns_bounded_error(tmp_path):
+    app,_,calls=make_panel(tmp_path,configured=[ID_A],live=[123])
+    with TestClient(app,base_url=PANEL) as client:
+        login(client)
+        response=client.get('/api/server/reserved-slots')
+    assert response.status_code==502 and response.json()['code']=='invalid_upstream'
+    assert SECRET not in response.text
+
+
+def test_rotation_mode_accepts_server_capitalization():
+    from app.rcon.rotation import normalize_rotation
+    assert normalize_rotation({'mode':'Ordered','enabled':True,'entries':[]})['mode']=='ordered'

@@ -43,6 +43,13 @@ class ReadService:
         self.stale_seconds = stale_seconds
         self._cache: dict[RouteName, _Cached] = {}
         self._lock = asyncio.Lock()
+        self.interest = lambda: None
+        self.managed = lambda: False
+        self.freshness = lambda route: self._ttl(route)
+
+    def publish(self, route, value):
+        value={**value,'observedAt':_now_iso(),'stale':False}
+        self._cache[route]=_Cached(deepcopy(value),monotonic())
 
     def invalidate(self, route: RouteName) -> None:
         """Drop a snapshot after a known server-side change."""
@@ -85,8 +92,16 @@ class ReadService:
         normalize: Callable[[dict[str, Any] | list[Any]], dict[str, Any]],
     ) -> dict[str, Any]:
         await self.capabilities.require(route)
+        if route in (RouteName.PLAYERS,RouteName.STATUS):
+            self.interest()
         cached = self._cache.get(route)
         now = monotonic()
+        if self.managed() and route in (RouteName.PLAYERS,RouteName.STATUS) and cached is not None:
+            if now-cached.stored_at>=self.stale_seconds:
+                raise PanelError('rcon_unavailable')
+            result=deepcopy(cached.value)
+            result['stale']=now-cached.stored_at>self.freshness(route)
+            return result
         if cached is not None and now - cached.stored_at < self._ttl(route):
             return deepcopy(cached.value)
         async with self._lock:

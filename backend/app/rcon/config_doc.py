@@ -73,6 +73,8 @@ def _reserved_assignment(line: str) -> tuple[str, str] | None:
 
 
 def _unquote_id(value: str) -> str:
+    if not isinstance(value,str):
+        raise PanelError("invalid_config")
     if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
         value = value[1:-1]
     if _CONFIG_ID.fullmatch(value) is None:
@@ -213,7 +215,18 @@ def _config_response(raw: dict[str, Any] | list[Any]) -> dict[str, Any]:
 
 
 async def read_config(client: RconClient) -> dict[str, Any]:
-    return _config_response(await client.request(RouteName.CONFIG))
+    headers: dict[str, str] = {}
+    raw = await client.request(RouteName.CONFIG, response_headers=headers)
+    # Warcon also reads the same JSON document and falls back to its ETag.
+    # Keep the returned text intact; a missing writable flag must not enable writes.
+    if isinstance(raw, dict) and not raw.get("revision"):
+        etag = headers.get("etag", "").strip()
+        if etag.startswith("W/"):
+            etag = etag[2:].strip()
+        if len(etag) >= 2 and etag.startswith('"') and etag.endswith('"'):
+            etag = etag[1:-1]
+        raw = {**raw, "revision": etag}
+    return _config_response(raw)
 
 
 async def config_consistency(client: RconClient, document: dict[str, Any]) -> dict[str, Any]:
@@ -260,9 +273,9 @@ async def read_reserved(client: RconClient) -> list[str]:
         normalized = [_unquote_id(value) for value in ids]
     except PanelError as exc:
         raise PanelError("invalid_upstream") from exc
-    if len(set(normalized)) != len(normalized):
-        raise PanelError("invalid_upstream")
-    return normalized
+    # The live Unreal array can include duplicate entries. Treat reserved players
+    # as a set like Warcon's observer, retaining the server's first-seen order.
+    return list(dict.fromkeys(normalized))
 
 
 async def send_config(
@@ -280,7 +293,7 @@ async def send_config(
         current = await read_config(client)
         if current["revision"] != revision:
             raise PanelError("config_conflict")
-        await require_consistent_config(client, current)
+        # Use the config endpoint's revision independently of runtime lists.
         spec = write_route_for(WriteName.CONFIG_APPLY)
     else:
         spec = write_route_for(WriteName.CONFIG_VALIDATE)

@@ -9,6 +9,10 @@ from fastapi.responses import JSONResponse
 
 
 _ERRORS: dict[str, tuple[int, str]] = {
+    "feed_body_too_large": (413, "击杀推送超过大小限制"),
+    "feed_invalid_batch": (400, "击杀事件格式无效"),
+    "bot_request_conflict": (409, "请求编号已用于不同内容，请核查原操作"),
+    "bot_invalid_request": (400, "机器人请求参数无效"),
     "updater_unavailable": (503, "宿主机更新程序未启用，请按部署教程安装更新服务"),
     "update_busy": (409, "已有更新任务正在执行"),
     "update_not_available": (409, "没有可校验的新版本安装包"),
@@ -32,7 +36,7 @@ _ERRORS: dict[str, tuple[int, str]] = {
     "settings_public_http_disabled": (403, "部署未允许公网 HTTP RCON"),
     "stale_server_target": (409, "服务器设置已变化，请刷新玩家名单后重试"),
     "config_conflict": (409, "服务器配置版本已变化，请刷新后重试"),
-    "config_interface_inconsistent": (503, "官方接口存在问题：配置返回内容无法核对一致，已禁用配置功能及相关整份配置写入"),
+    "config_interface_inconsistent": (503, "官方接口存在问题：配置返回内容无法核对一致，仅禁用服务器配置页面写入"),
     "invalid_config": (400, "服务器配置文档无效"),
     "reserved_exists": (409, "该玩家已在预留位名单中"),
     "reserved_missing": (404, "该玩家不在预留位名单中"),
@@ -84,7 +88,9 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, _exc: RequestValidationError) -> JSONResponse:
         # FastAPI's default validation body can include the submitted password.
-        if request.url.path == "/api/auth/login":
+        if request.url.path.startswith("/api/bot/"):
+            code = "bot_invalid_request"
+        elif request.url.path == "/api/auth/login":
             code = "invalid_credentials"
         elif request.url.path == "/api/server/settings":
             code = "invalid_settings"
@@ -96,7 +102,7 @@ def install_error_handlers(app: FastAPI) -> None:
             code = "invalid_moderation_target"
         elif request.url.path == "/api/steam/profiles":
             code = "invalid_steam_ids"
-        elif request.url.path.startswith("/api/rules") or request.url.path.startswith("/api/warmup"):
+        elif request.url.path.startswith(("/api/rules", "/api/warmup", "/api/community", "/api/anticheat")):
             code = "invalid_selection"
         elif request.url.path == "/api/server/warnings":
             code = "invalid_moderation_reason" if request.method == "POST" else "invalid_moderation_target"

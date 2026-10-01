@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.auth import require_admin
 from app.errors import PanelError
 from app.rcon.config_doc import (
-    config_consistency,
     read_config,
     read_reserved,
     replace_reserved_ids,
@@ -70,14 +69,12 @@ async def _read_state(runtime: Any, database: Any) -> dict[str, Any]:
         writable = False
     else:
         writable = document["writable"]
-    consistent = (await config_consistency(runtime.client, document))["ok"]
     return {
         "reservedSlots": slots,
         "configuredReservedSlots": configured_slots,
-        "pendingRestart": slots != configured_slots,
+        "pendingRestart": set(slots) != set(configured_slots),
         "revision": document["revision"],
-        "writable": writable and consistent,
-        **({"writeIssue": "config_interface_inconsistent"} if not consistent else {}),
+        "writable": writable,
         "targetRevision": runtime.target_revision,
         "metadata": database.reserved_metadata(runtime.client.target.origin),
     }
@@ -157,7 +154,7 @@ async def _change_slots(
             "reservedSlots": live_slots,
             "configuredReservedSlots": configured_slots,
             "pendingRestart": (
-                live_slots != configured_slots
+                set(live_slots) != set(configured_slots)
                 if live_slots is not None and configured_slots is not None
                 else None
             ),

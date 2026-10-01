@@ -115,7 +115,7 @@ class WarmupStore:
 
     def advance_cycle(self, origin: str, count: int, *, reset_threshold: int,
                       reset_minutes: int, player_threshold: int,
-                      now: datetime, first_sample: bool = False) -> bool:
+                      now: datetime, first_sample: bool = False, max_sample_gap: float = 15) -> bool:
         """Consume one complete roster; true only for a fresh low-to-high crossing."""
         stamp = now.isoformat()
         with self.db._connect() as db:
@@ -131,7 +131,7 @@ class WarmupStore:
                 if phase != "armed":
                     gap = (now - datetime.fromisoformat(last_sample).astimezone(UTC)
                            if last_sample else None)
-                    contiguous = gap is not None and timedelta(0) <= gap <= timedelta(seconds=15)
+                    contiguous = gap is not None and timedelta(0) <= gap <= timedelta(seconds=max_sample_gap)
                     if not contiguous or low_since is None:
                         low_since = stamp
                     if now - datetime.fromisoformat(low_since).astimezone(UTC) >= timedelta(minutes=reset_minutes):
