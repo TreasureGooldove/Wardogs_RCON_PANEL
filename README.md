@@ -14,7 +14,7 @@
 
 ## ✨ 功能
 
-QQ 群成员不需要调用 API，只需向机器人发送命令。管理员接入与密钥配置见[QQ 机器人创建与使用教程](docs/QQ_BOT.md)（包括 `create-bot-token` 不存在时的正确配置方式）。
+🤖 机器人接入请查看 [API 文档](docs/BOT_API.md)、[English API reference](docs/BOT_API.en.md) 和 [OpenAPI](docs/bot-openapi.json)：包含 Token 配置、个人战绩、排名、预留位、管理员封禁、独立 HTTP 网关及 API 状态检查。
 
 - **服务器与玩家**：查看状态、地图、比分、在线玩家；玩家按 Lonestar、Valkyra、Manticore 分栏，页面可见时约每 5 秒刷新。
 - **管理操作**：踢出、永久封禁与解封、击杀角色、私聊、人工警告、切换阵营、全服公告、地图与光照调整、结束或重开比赛。可用操作取决于服务器公告的 RCON 能力；危险操作需要确认。

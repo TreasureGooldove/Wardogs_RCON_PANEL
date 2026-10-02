@@ -1,0 +1,1639 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Wardogs QQ Bot API",
+    "description": "bot-api-1. Recorded server observations, not official career data. Route-generated with response/error documentation supplements; see BOT_API.md and BOT_API.en.md.",
+    "version": "1",
+    "x-documentation": {
+      "zh-CN": "BOT_API.md",
+      "en": "BOT_API.en.md",
+      "englishTranslation": "AI translated"
+    }
+  },
+  "paths": {
+    "/api/bot/capabilities": {
+      "get": {
+        "tags": [
+          "QQ Bot"
+        ],
+        "summary": "Get bot capabilities and current target revision",
+        "operationId": "capabilities_api_bot_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Capabilities for this token role; does not guarantee upstream availability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitiesResponse"
+                },
+                "example": {
+                  "apiVersion": "1",
+                  "panelVersion": "example-version",
+                  "build": "bot-api-1",
+                  "serverId": "example-server-id",
+                  "targetRevision": "example-target-revision",
+                  "permissions": [
+                    "personal:read",
+                    "players:read",
+                    "bans:write"
+                  ],
+                  "features": {
+                    "stats": true,
+                    "ranking": true,
+                    "reservedSlot": true,
+                    "ban": true,
+                    "banOnlineOnly": true
+                  },
+                  "rankingPeriods": [
+                    "all"
+                  ],
+                  "statsSource": "panel_observations",
+                  "officialCareer": false,
+                  "updatedAt": "2026-01-01T00:00:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bot request (custom handler; not default 422)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or disabled bot token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Management identity required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-role panel limit or upstream rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Upstream capability not advertised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream authentication or response failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "RCON unconfigured or unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Upstream read timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BotToken": []
+          }
+        ],
+        "x-required-role": "read"
+      }
+    },
+    "/api/bot/players/{steamId}/stats": {
+      "get": {
+        "tags": [
+          "QQ Bot"
+        ],
+        "summary": "Get recorded personal server statistics",
+        "description": "本服累计观测数据与当前比赛分开返回；缺失字段为 null，非官方生涯。",
+        "operationId": "stats_api_bot_players__steamId__stats_get",
+        "security": [
+          {
+            "BotToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{17}$",
+              "title": "Steamid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                },
+                "example": {
+                  "steamId": "76561190000000001",
+                  "name": "Example Player",
+                  "online": true,
+                  "scope": "recorded_lifetime",
+                  "source": "panel_observations",
+                  "officialCareer": false,
+                  "updatedAt": "2026-01-01T00:00:00Z",
+                  "onlineObservedAt": "2026-01-01T00:00:00Z",
+                  "stats": {
+                    "kills": 120,
+                    "deaths": 80,
+                    "cash": 8000,
+                    "peakCash": 18000,
+                    "matches": 15,
+                    "wins": null,
+                    "playtimeSeconds": null,
+                    "battleLevel": null
+                  },
+                  "currentMatch": {
+                    "kills": 4,
+                    "deaths": 2,
+                    "cash": 8000,
+                    "pingMs": 60
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "description": "Trace identifier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bot request (custom handler; not default 422)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or disabled bot token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Management identity required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-role panel limit or upstream rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Upstream capability not advertised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream authentication or response failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "RCON unconfigured or unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Upstream read timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-role": "read"
+      }
+    },
+    "/api/bot/players/{steamId}/ranking": {
+      "get": {
+        "tags": [
+          "QQ Bot"
+        ],
+        "summary": "Get dense ranking by recorded lifetime kills",
+        "description": "all 周期，按累计观测击杀密集排名；包含离线玩家，排除缺失击杀者。",
+        "operationId": "ranking_api_bot_players__steamId__ranking_get",
+        "security": [
+          {
+            "BotToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{17}$",
+              "title": "Steamid"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "all",
+              "type": "string",
+              "default": "all",
+              "title": "Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RankingResponse"
+                },
+                "example": {
+                  "steamId": "76561190000000001",
+                  "period": "all",
+                  "rank": 2,
+                  "totalPlayers": 3,
+                  "battleLevel": null,
+                  "rankBy": "kills",
+                  "kills": 120,
+                  "ties": "dense_rank",
+                  "includesOffline": true,
+                  "scope": "recorded_lifetime",
+                  "updatedAt": "2026-01-01T00:00:00Z"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "description": "Trace identifier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bot request (custom handler; not default 422)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or disabled bot token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Management identity required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-role panel limit or upstream rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Upstream capability not advertised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream authentication or response failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "RCON unconfigured or unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Upstream read timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-role": "read"
+      }
+    },
+    "/api/bot/players/{steamId}/reserved-slot": {
+      "get": {
+        "tags": [
+          "QQ Bot"
+        ],
+        "summary": "Get personal runtime reserved slot and configuration report",
+        "description": "仅返回该玩家。active 为运行列表；configured 为官方配置报告，不能保证磁盘一致。",
+        "operationId": "reserved_api_bot_players__steamId__reserved_slot_get",
+        "security": [
+          {
+            "BotToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "steamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{17}$",
+              "title": "Steamid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservedResponse"
+                },
+                "example": {
+                  "steamId": "76561190000000001",
+                  "active": false,
+                  "configured": true,
+                  "pendingRestart": true,
+                  "expiresAt": "2026-01-02T00:00:00Z",
+                  "reason": "Example reward",
+                  "metadataStatus": "active",
+                  "updatedAt": "2026-01-01T00:00:00Z",
+                  "configuredSource": "rcon_config",
+                  "configurationVerified": false
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "description": "Trace identifier"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bot request (custom handler; not default 422)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or disabled bot token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Management identity required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-role panel limit or upstream rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Upstream capability not advertised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream authentication or response failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "RCON unconfigured or unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Upstream read timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-role": "read"
+      }
+    },
+    "/api/bot/players": {
+      "get": {
+        "tags": [
+          "QQ Bot"
+        ],
+        "summary": "Search online moderation targets",
+        "operationId": "players_api_bot_players_get",
+        "security": [
+          {
+            "BotToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "default": "",
+              "title": "Search"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered paginated online snapshot; stale may be true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlinePlayersResponse"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "steamId": "76561190000000001",
+                      "name": "Example Player"
+                    }
+                  ],
+                  "total": 1,
+                  "limit": 20,
+                  "offset": 0,
+                  "targetRevision": "example-target-revision",
+                  "stale": false,
+                  "updatedAt": "2026-01-01T00:00:00Z",
+                  "scope": "online"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bot request (custom handler; not default 422)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or disabled bot token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Management identity required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-role panel limit or upstream rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Upstream capability not advertised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream authentication or response failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "RCON unconfigured or unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Upstream read timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-role": "management"
+      }
+    },
+    "/api/bot/bans": {
+      "post": {
+        "tags": [
+          "QQ Bot"
+        ],
+        "summary": "Ban an online player with durable idempotency",
+        "description": "Management token only. Online targets only. The request must carry a fresh targetRevision. Accepted first/replayed: 200. Rejected first/replayed: 409. Uncertain first: 502; uncertain replay: 409. Extra fields are forbidden. Same requestId and normalized body returns the stored receipt without executing again. Pending/interrupted receipts may omit updatedAt. A timeout is not proof of success; never retry under a new identifier.",
+        "operationId": "ban_api_bot_bans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BanRequest"
+              },
+              "example": {
+                "steamId": "76561190000000001",
+                "reason": "Example moderation reason",
+                "targetRevision": "example-target-revision",
+                "requestId": "bot-example-operation-0001",
+                "operator": {
+                  "qqId": "10000",
+                  "groupId": "20000"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BanReceipt"
+                },
+                "example": {
+                  "requestId": "bot-example-operation-0001",
+                  "steamId": "76561190000000001",
+                  "outcome": "accepted",
+                  "code": "accepted",
+                  "replayed": false,
+                  "updatedAt": "2026-01-01T00:00:00Z"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "description": "Trace identifier"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected receipt, unresolved replay, or generic requestId conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BanReceipt"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BotError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Uncertain receipt; stop automatic retries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BanReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bot request (custom handler; not default 422)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or disabled bot token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Management identity required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-role panel limit or upstream rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unconfigured target before durable claim",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BotToken": []
+          }
+        ],
+        "x-required-role": "management"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BanReceipt": {
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "title": "Requestid"
+          },
+          "steamId": {
+            "type": "string",
+            "title": "Steamid"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected",
+              "uncertain"
+            ],
+            "title": "Outcome"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "replayed": {
+            "type": "boolean",
+            "title": "Replayed"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requestId",
+          "steamId",
+          "outcome",
+          "code",
+          "replayed"
+        ],
+        "title": "BanReceipt"
+      },
+      "BanRequest": {
+        "properties": {
+          "steamId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{16}$",
+            "title": "Steamid"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Nonblank printable text; no characters below U+0020 or U+007F. Leading/trailing whitespace is stripped."
+          },
+          "targetRevision": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Targetrevision"
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:-]{8,128}$",
+            "title": "Requestid",
+            "description": "Durable operation identifier. Same normalized body replays its receipt; changed body conflicts. Never issue a new identifier to retry an uncertain operation."
+          },
+          "operator": {
+            "$ref": "#/components/schemas/Operator"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "steamId",
+          "reason",
+          "targetRevision",
+          "requestId",
+          "operator"
+        ],
+        "title": "BanRequest"
+      },
+      "Operator": {
+        "properties": {
+          "qqId": {
+            "type": "string",
+            "pattern": "^[0-9]{1,20}$",
+            "title": "Qqid"
+          },
+          "groupId": {
+            "type": "string",
+            "pattern": "^[0-9]{1,20}$",
+            "title": "Groupid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "qqId",
+          "groupId"
+        ],
+        "title": "Operator"
+      },
+      "RankingResponse": {
+        "properties": {
+          "steamId": {
+            "type": "string",
+            "title": "Steamid"
+          },
+          "period": {
+            "type": "string",
+            "const": "all",
+            "title": "Period"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "totalPlayers": {
+            "type": "integer",
+            "title": "Totalplayers"
+          },
+          "battleLevel": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battlelevel"
+          },
+          "rankBy": {
+            "type": "string",
+            "const": "kills",
+            "title": "Rankby"
+          },
+          "kills": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kills"
+          },
+          "ties": {
+            "type": "string",
+            "const": "dense_rank",
+            "title": "Ties"
+          },
+          "includesOffline": {
+            "type": "boolean",
+            "title": "Includesoffline"
+          },
+          "scope": {
+            "type": "string",
+            "const": "recorded_lifetime",
+            "title": "Scope"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "steamId",
+          "period",
+          "rank",
+          "totalPlayers",
+          "battleLevel",
+          "rankBy",
+          "kills",
+          "ties",
+          "includesOffline",
+          "scope",
+          "updatedAt"
+        ],
+        "title": "RankingResponse"
+      },
+      "RecordedStats": {
+        "properties": {
+          "kills": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kills"
+          },
+          "deaths": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deaths"
+          },
+          "cash": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash",
+            "description": "Latest observed balance, not total earnings."
+          },
+          "peakCash": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peakcash",
+            "description": "Highest observed balance."
+          },
+          "matches": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches"
+          },
+          "wins": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wins",
+            "description": "Currently null: no reliable data source."
+          },
+          "playtimeSeconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playtimeseconds",
+            "description": "Currently null: no reliable data source."
+          },
+          "battleLevel": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battlelevel",
+            "description": "Currently null: no reliable data source."
+          }
+        },
+        "type": "object",
+        "required": [
+          "kills",
+          "deaths",
+          "cash",
+          "peakCash",
+          "matches",
+          "wins",
+          "playtimeSeconds",
+          "battleLevel"
+        ],
+        "title": "RecordedStats"
+      },
+      "ReservedResponse": {
+        "properties": {
+          "steamId": {
+            "type": "string",
+            "title": "Steamid"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "configured": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured"
+          },
+          "pendingRestart": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pendingrestart",
+            "description": "Inferred runtime/config report difference, not a guarantee that restart resolves it."
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "metadataStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadatastatus"
+          },
+          "updatedAt": {
+            "type": "string",
+            "title": "Updatedat"
+          },
+          "configuredSource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configuredsource"
+          },
+          "configurationVerified": {
+            "type": "boolean",
+            "title": "Configurationverified",
+            "description": "Currently false; the official configuration report is not proven identical to disk."
+          }
+        },
+        "type": "object",
+        "required": [
+          "steamId",
+          "active",
+          "configured",
+          "pendingRestart",
+          "expiresAt",
+          "reason",
+          "metadataStatus",
+          "updatedAt",
+          "configuredSource",
+          "configurationVerified"
+        ],
+        "title": "ReservedResponse"
+      },
+      "StatsResponse": {
+        "properties": {
+          "steamId": {
+            "type": "string",
+            "title": "Steamid"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "online": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Online",
+            "description": "null when the snapshot is stale; currentMatch may still contain cached values."
+          },
+          "scope": {
+            "type": "string",
+            "const": "recorded_lifetime",
+            "title": "Scope"
+          },
+          "source": {
+            "type": "string",
+            "const": "panel_observations",
+            "title": "Source"
+          },
+          "officialCareer": {
+            "type": "boolean",
+            "title": "Officialcareer"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "onlineObservedAt": {
+            "type": "string",
+            "title": "Onlineobservedat"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/RecordedStats"
+          },
+          "currentMatch": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentmatch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "steamId",
+          "name",
+          "online",
+          "scope",
+          "source",
+          "officialCareer",
+          "updatedAt",
+          "onlineObservedAt",
+          "stats",
+          "currentMatch"
+        ],
+        "title": "StatsResponse"
+      },
+      "BotError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Stable machine-readable error code"
+          },
+          "message": {
+            "type": "string",
+            "description": "May be Chinese; do not use for branching"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Trace identifier, not a ban idempotency identifier"
+          }
+        }
+      },
+      "CapabilitiesResponse": {
+        "type": "object",
+        "required": [
+          "apiVersion",
+          "panelVersion",
+          "build",
+          "serverId",
+          "targetRevision",
+          "permissions",
+          "features",
+          "rankingPeriods",
+          "statsSource",
+          "officialCareer",
+          "updatedAt"
+        ],
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "1"
+            ]
+          },
+          "panelVersion": {
+            "type": "string"
+          },
+          "build": {
+            "type": "string",
+            "enum": [
+              "bot-api-1"
+            ]
+          },
+          "serverId": {
+            "type": "string",
+            "description": "Digest of target address, not the address itself"
+          },
+          "targetRevision": {
+            "type": "string",
+            "description": "Opaque current panel target revision; refresh after restart or target change"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "personal:read",
+                "players:read",
+                "bans:write"
+              ]
+            }
+          },
+          "features": {
+            "type": "object",
+            "required": [
+              "stats",
+              "ranking",
+              "reservedSlot",
+              "ban",
+              "banOnlineOnly"
+            ],
+            "properties": {
+              "stats": {
+                "type": "boolean"
+              },
+              "ranking": {
+                "type": "boolean"
+              },
+              "reservedSlot": {
+                "type": "boolean"
+              },
+              "ban": {
+                "type": "boolean"
+              },
+              "banOnlineOnly": {
+                "type": "boolean"
+              }
+            }
+          },
+          "rankingPeriods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "all"
+              ]
+            }
+          },
+          "statsSource": {
+            "type": "string",
+            "enum": [
+              "panel_observations"
+            ]
+          },
+          "officialCareer": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "OnlinePlayersResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "targetRevision",
+          "stale",
+          "updatedAt",
+          "scope"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "steamId",
+                "name"
+              ],
+              "properties": {
+                "steamId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "targetRevision": {
+            "type": "string"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "online"
+            ]
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BotToken": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://panel.example.com:23333",
+      "description": "Example HTTPS origin; replace with your own deployment"
+    },
+    {
+      "url": "http://panel.example.com:23334",
+      "description": "Optional bot-only HTTP gateway; credentials travel in cleartext"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | English
 
-See the [QQ bot setup and user guide (Chinese)](docs/QQ_BOT.md). Group members use chat commands, not API requests; bot credentials are configured by the operator.
+🤖 See the [API reference](docs/BOT_API.en.md), [Chinese API reference](docs/BOT_API.md), and [OpenAPI](docs/bot-openapi.json) for token configuration, personal statistics, ranking, reserved slots, administrative bans, the dedicated HTTP gateway, and API health checks.
 
 > ⚠️ **This project is still under development. Back up your server configuration and data before use, and verify write operations in a controlled environment.**
 
