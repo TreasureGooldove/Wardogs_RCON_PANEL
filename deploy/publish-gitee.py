@@ -7,9 +7,11 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -63,11 +65,25 @@ def publish(token, version, package, checksums, notes):
     with tempfile.TemporaryDirectory(prefix='wardogs-gitee-') as temporary:
         checkout = Path(temporary) / 'updates'
         def git(*args):
-            result = subprocess.run(['git', '-c', 'credential.helper=', *args], cwd=checkout if checkout.exists() else None,
-                                    capture_output=True, text=True, timeout=300)
-            if result.returncode:
-                raise RuntimeError('Gitee Git publication failed')
-            return result.stdout
+            # Retry only reads. A timed-out push must be checked remotely before resuming.
+            read = args[0] in ('ls-remote', 'clone')
+            for attempt in range(3 if read else 1):
+                try:
+                    result = subprocess.run(['git', '-c', 'credential.helper=',
+                        '-c', 'http.version=HTTP/1.1', '-c', 'http.lowSpeedLimit=512',
+                        '-c', 'http.lowSpeedTime=30', *args], cwd=checkout if checkout.exists() else None,
+                        stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
+                    if result.returncode == 0:
+                        return result.stdout
+                except subprocess.TimeoutExpired:
+                    pass
+                if not read or attempt == 2:
+                    raise RuntimeError('Gitee Git request failed; inspect remote state before resuming')
+                if args[0] == 'clone' and checkout.exists():
+                    # This directory belongs only to this publisher's TemporaryDirectory.
+                    assert checkout.resolve().parent == Path(temporary).resolve()
+                    shutil.rmtree(checkout)
+                time.sleep(2 * (attempt + 1))
         branches = git('ls-remote', '--heads', REPO_URL + '.git', 'updates')
         git('clone', '--depth', '1', '--single-branch', '--branch', 'updates' if branches.strip() else 'main', REPO_URL + '.git', str(checkout))
         if not branches.strip():
