@@ -15,9 +15,10 @@ _LOG=logging.getLogger(__name__)
 
 class HistoryCollector:
     def __init__(self,runtime: RconRuntime,store: HistoryStore,rules: RulesEngine|None=None,
-                 warmup: WarmupEngine|None=None,interval: float=5.0,awards=None):
+                 warmup: WarmupEngine|None=None,interval: float=5.0,awards=None,game_rules=None):
         self.runtime=runtime;self.store=store;self.rules=rules;self.warmup=warmup;self.awards=awards
         self.interval=interval;self.last_error=None
+        self.game_rules=game_rules;self.status_at=0.
         self.revision='';self.status=None;self.players=None;self.failures=0
         self.players_due=0.;self.status_due=0.;self.lists_at=0.;self.identity_at=0.
         self.hold_until=0.;self.health_unserved=False;self.tier='idle'
@@ -52,6 +53,8 @@ class HistoryCollector:
                 self.revision=self.runtime.target_revision;self.status=None;self.players=None
                 self.players_due=self.status_due=self.lists_at=self.identity_at=self.hold_until=0.
                 self.failures=0;self.health_unserved=False
+                self.status_at=0.
+                if self.game_rules:self.game_rules.reset()
             if now<self.hold_until:return False
             p_period,s_period=self.cadence(now);self.runtime.cadence=(p_period,s_period)
             p_due=not scheduled or now>=self.players_due
@@ -66,7 +69,8 @@ class HistoryCollector:
             if p_due:
                 await self.runtime.capabilities.require(RouteName.PLAYERS)
                 players=normalize_players(await self.runtime.client.request(RouteName.PLAYERS))
-            if status:self.status=status;self.runtime.read_service.publish(RouteName.STATUS,status)
+            if status:
+                self.status=status;self.status_at=monotonic();self.runtime.read_service.publish(RouteName.STATUS,status)
             if players is not None:self.players=players;self.runtime.read_service.publish(RouteName.PLAYERS,players)
             had_failed=self.failures>0;self.failures=0;self.last_error=None
             if players is not None and self.status is not None:
@@ -74,6 +78,11 @@ class HistoryCollector:
                 if self.rules:self.rules.observe(origin,players['players'])
                 if self.warmup:self.warmup.observe(origin,players['players'])
                 if self.awards:self.awards.observe(origin,self.runtime.target_revision)
+                if self.game_rules and monotonic()-self.status_at<=min(15.,s_period*2+1):
+                    try:
+                        await self.game_rules.factions_unlocked(players['players'],self.status)
+                    except Exception:
+                        _LOG.error('Faction rule evaluation failed; collection continues')
             if had_failed or now-self.identity_at>=3600 or not self.identity_at:
                 self.identity_at=now;self.health_unserved=False
                 if had_failed:self.runtime.capabilities.invalidate()

@@ -1,5 +1,6 @@
 """The game's separate Bearer-authenticated, bounded kill-event ingress."""
 import asyncio
+from datetime import UTC, datetime
 from collections import deque
 from hashlib import sha256
 import json
@@ -10,6 +11,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.errors import PanelError
+from app.game_rules.models import ItemUsedEvent
 
 router=APIRouter()
 
@@ -36,6 +38,21 @@ class KillEvent(BaseModel):
     distance: float|None=Field(default=None,ge=0,le=100000000,allow_inf_nan=False)
     contextTags: list[str]|None=Field(default=None,max_length=64)
     victimPositionMeters: PositionMeters | None = None
+    occurredAt: datetime | None = None
+
+    @field_validator('occurredAt', mode='before')
+    @classmethod
+    def timestamp_text(cls, value):
+        if value is not None and not isinstance(value, (str, datetime)):
+            raise ValueError('occurredAt must be a timestamp with an explicit time zone')
+        return value
+
+    @field_validator('occurredAt')
+    @classmethod
+    def time_zone(cls, value):
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError('occurredAt requires an explicit time zone')
+        return value
 
     @field_validator('eventTime','distance',mode='before')
     @classmethod
@@ -85,13 +102,40 @@ async def ingest(request: Request):
         events=body.get('events')
         if not isinstance(events,list) or len(events)>200 or any(not isinstance(e,dict) for e in events):
             raise ValueError('invalid batch')
-        kills=[KillEvent.model_validate(e).model_dump() for e in events if e.get('type')=='killed']
+        kills=[KillEvent.model_validate(e).model_dump(mode='json') for e in events if e.get('type')=='killed']
+        item_uses=[ItemUsedEvent.model_validate(e).model_dump(mode='json') for e in events if e.get('type')=='itemUsed']
     except (ValueError,TypeError,ValidationError,RecursionError) as exc:
         raise PanelError('feed_invalid_batch') from exc
     runtime=request.app.state.rcon_runtime
     async with runtime.lock:
         if runtime.target is None or runtime.target.origin!=settings.feed_origin:
             raise PanelError('stale_server_target')
-        result=await asyncio.to_thread(request.app.state.kill_store.ingest,settings.feed_origin,body['serverId'],kills)
+        result=await asyncio.to_thread(request.app.state.kill_store.ingest,settings.feed_origin,body['serverId'],kills,include_inserted=True)
+        fresh=result.pop('insertedEvents')
+        store=request.app.state.game_rules_store
+        evidence=[]
+        for event in fresh:
+            tags=[tag.split('.')[-1].lower() for tag in event.get('contextTags') or []]
+            actionable=event.get('killerSteamId') if event.get('killerSteamId') != event.get('victimSteamId') and 'suicide' not in tags else None
+            recorded=store.evidence(settings.feed_origin,'kill_cause',body['serverId'],event['eventId'],event['matchId'],
+                event['localMatch'],actionable,cause=event.get('cause'),occurred_at=event.get('occurredAt'))
+            if recorded:evidence.append(recorded)
+        item_accepted=0
+        for event in item_uses:
+            age=(datetime.now(UTC)-datetime.fromisoformat(event['occurredAt'])).total_seconds()
+            linked=request.app.state.kill_store.register_item_round(settings.feed_origin,body['serverId'],event) if -3<=age<=10 else None
+            recorded=store.evidence(settings.feed_origin,'item_used',body['serverId'],event['eventId'],event['matchId'],
+                linked,event['steamId'],item_id=event['itemId'],occurred_at=event['occurredAt'])
+            if recorded:
+                item_accepted+=1
+                evidence.append(recorded)
+        # Recording success is independent of an automation failure: producers may retry
+        # batches, but consumed event IDs must never cause another game operation.
+        try:
+            await request.app.state.game_rules_engine.items_unlocked(evidence)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).error('Item rule evaluation failed; recorded events will not be replayed')
     await request.app.state.anticheat_engine.evaluate()
-    return {'ok':True,**result,'ignored':len(events)-len(kills)}
+    return {'ok':True,**result,'itemUsesAccepted':item_accepted,'itemUsesDuplicates':len(item_uses)-item_accepted,
+            'ignored':len(events)-len(kills)-len(item_uses)}

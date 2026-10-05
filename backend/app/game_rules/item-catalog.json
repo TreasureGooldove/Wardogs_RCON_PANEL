@@ -1,0 +1,1233 @@
+{
+  "source": "https://wardogs.t0ki.cn/weapons.html",
+  "upstreamSource": "https://wardogs.zone/database",
+  "sourceUpdatedAt": "2026-09-04",
+  "retrievedAt": "2026-10-05",
+  "items": [
+    {
+      "id": "a91",
+      "name": "A-91",
+      "englishName": "A-91",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "ak74m",
+      "name": "AK74",
+      "englishName": "AK74",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "wepn_033",
+      "name": "大毒蛇 M17S",
+      "englishName": "Bushmaster M17S",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "wepn_030",
+      "name": "FAL",
+      "englishName": "FAL",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "wepn_029",
+      "name": "加利尔",
+      "englishName": "Galil",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "kh2002",
+      "name": "KH-2002",
+      "englishName": "KH-2002",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "m4",
+      "name": "M4",
+      "englishName": "M4",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "tar21",
+      "name": "T-21",
+      "englishName": "T-21",
+      "kind": "weapons",
+      "category": "突击步枪"
+    },
+    {
+      "id": "combatbow",
+      "name": "复合弓",
+      "englishName": "Compound Bow",
+      "kind": "weapons",
+      "category": "弓"
+    },
+    {
+      "id": "launcher_04",
+      "name": "9K333 柳树防空导弹",
+      "englishName": "9K333 Verba",
+      "kind": "weapons",
+      "category": "发射器"
+    },
+    {
+      "id": "cgm4",
+      "name": "MAAWS",
+      "englishName": "MAAWS",
+      "kind": "weapons",
+      "category": "发射器"
+    },
+    {
+      "id": "mmgl",
+      "name": "MGL-40",
+      "englishName": "MGL-40",
+      "kind": "weapons",
+      "category": "发射器"
+    },
+    {
+      "id": "rpg7",
+      "name": "RPG-7",
+      "englishName": "RPG-7",
+      "kind": "weapons",
+      "category": "发射器"
+    },
+    {
+      "id": "m249",
+      "name": "M249 SAW",
+      "englishName": "M249 SAW",
+      "kind": "weapons",
+      "category": "轻机枪"
+    },
+    {
+      "id": "lmg_02",
+      "name": "PKM",
+      "englishName": "PKM",
+      "kind": "weapons",
+      "category": "轻机枪"
+    },
+    {
+      "id": "rfb",
+      "name": "BMR-308",
+      "englishName": "BMR-308",
+      "kind": "weapons",
+      "category": "精确射手步枪"
+    },
+    {
+      "id": "sks",
+      "name": "SKS",
+      "englishName": "SKS",
+      "kind": "weapons",
+      "category": "精确射手步枪"
+    },
+    {
+      "id": "svdm",
+      "name": "SVD",
+      "englishName": "SVD",
+      "kind": "weapons",
+      "category": "精确射手步枪"
+    },
+    {
+      "id": "wepn_027",
+      "name": "沙漠之鹰",
+      "englishName": "Deagle",
+      "kind": "weapons",
+      "category": "手枪"
+    },
+    {
+      "id": "glock17",
+      "name": "GGX 17",
+      "englishName": "GGX 17",
+      "kind": "weapons",
+      "category": "手枪"
+    },
+    {
+      "id": "wepn_032",
+      "name": "GGX 18",
+      "englishName": "GGX 18",
+      "kind": "weapons",
+      "category": "手枪"
+    },
+    {
+      "id": "judge",
+      "name": "Judge",
+      "englishName": "Judge",
+      "kind": "weapons",
+      "category": "手枪"
+    },
+    {
+      "id": "wepn_026",
+      "name": "M1911",
+      "englishName": "M1911",
+      "kind": "weapons",
+      "category": "手枪"
+    },
+    {
+      "id": "m500",
+      "name": "M500",
+      "englishName": "M500",
+      "kind": "weapons",
+      "category": "霰弹枪"
+    },
+    {
+      "id": "mp43",
+      "name": "MP43",
+      "englishName": "MP43",
+      "kind": "weapons",
+      "category": "霰弹枪"
+    },
+    {
+      "id": "mp9",
+      "name": "AMP-9",
+      "englishName": "AMP-9",
+      "kind": "weapons",
+      "category": "冲锋枪"
+    },
+    {
+      "id": "wepn_028",
+      "name": "MP5",
+      "englishName": "MP5",
+      "kind": "weapons",
+      "category": "冲锋枪"
+    },
+    {
+      "id": "smg_03",
+      "name": "PP-19 勇士",
+      "englishName": "PP-19 Vityaz",
+      "kind": "weapons",
+      "category": "冲锋枪"
+    },
+    {
+      "id": "vector",
+      "name": "Super-45",
+      "englishName": "Super-45",
+      "kind": "weapons",
+      "category": "冲锋枪"
+    },
+    {
+      "id": "sr_04",
+      "name": "AMR 50",
+      "englishName": "AMR 50",
+      "kind": "weapons",
+      "category": "狙击步枪"
+    },
+    {
+      "id": "mk22",
+      "name": "MK22",
+      "englishName": "MK22",
+      "kind": "weapons",
+      "category": "狙击步枪"
+    },
+    {
+      "id": "mosin",
+      "name": "莫辛纳甘",
+      "englishName": "Mosin Nagant",
+      "kind": "weapons",
+      "category": "狙击步枪"
+    },
+    {
+      "id": "wepn_035",
+      "name": "侦察步枪 TD",
+      "englishName": "Scout Rifle TD",
+      "kind": "weapons",
+      "category": "狙击步枪"
+    },
+    {
+      "id": "sv98",
+      "name": "SV98",
+      "englishName": "SV98",
+      "kind": "weapons",
+      "category": "狙击步枪"
+    },
+    {
+      "id": "m12g",
+      "name": "M12G",
+      "englishName": "M12G",
+      "kind": "weapons",
+      "category": "远程武器"
+    },
+    {
+      "id": "at4",
+      "name": "AT4",
+      "englishName": "AT4",
+      "kind": "weapons",
+      "category": "远程武器"
+    },
+    {
+      "id": "browningmg",
+      "name": "Browning 机枪",
+      "englishName": "Browning MG",
+      "kind": "weapons",
+      "category": "远程武器"
+    },
+    {
+      "id": "g60",
+      "name": "G60",
+      "englishName": "G60",
+      "kind": "weapons",
+      "category": "远程武器"
+    },
+    {
+      "id": "ghilliearmor",
+      "name": "吉利服",
+      "englishName": "Ghillie Body Suit",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "ghilliearmor-dead",
+      "name": "吉利服 (枯草)",
+      "englishName": "Ghillie Body Suit (Dead)",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "ghilliehelmet",
+      "name": "吉利头套",
+      "englishName": "Ghillie Headwear",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "ghilliehelmet-dead",
+      "name": "吉利头套 (枯草)",
+      "englishName": "Ghillie Headwear (Dead)",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "lightarmor",
+      "name": "一级护甲",
+      "englishName": "Level 1 Armor",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "lighthelmet",
+      "name": "一级头盔",
+      "englishName": "Level 1 Helmet",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "mediumarmor",
+      "name": "二级护甲",
+      "englishName": "Level 2 Armor",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "mediumhelmet",
+      "name": "二级头盔",
+      "englishName": "Level 2 Helmet",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "heavyarmor",
+      "name": "三级护甲",
+      "englishName": "Level 3 Armor",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "heavyhelmet",
+      "name": "三级头盔",
+      "englishName": "Level 3 Helmet",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "superheavyarmor",
+      "name": "四级护甲",
+      "englishName": "Level 4 Armor",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "superheavyhelmet",
+      "name": "四级头盔",
+      "englishName": "Level 4 Helmet",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "helm_005",
+      "name": "四级头盔",
+      "englishName": "Level 4 Helmet",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "extralargeslingbackpack",
+      "name": "Arsenal 背包 + 2 条背带",
+      "englishName": "Arsenal Backpack + 2 Slings",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "bpak_006",
+      "name": "突击背包",
+      "englishName": "Assault Backpack",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "bpak_005",
+      "name": "野战背包",
+      "englishName": "Field Backpack",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "largeslingbackpack",
+      "name": "机枪手背包 + 背带",
+      "englishName": "Gunner Backpack + Sling",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "bpak_007",
+      "name": "Halftrack 背包",
+      "englishName": "Halftrack Backpack",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "largetacvest",
+      "name": "大型战术背心",
+      "englishName": "Large Tac Vest",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "mediumslingbackpack",
+      "name": "中型背包 + 背带",
+      "englishName": "Medium Backpack + Sling",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "mediumtacvest",
+      "name": "中型战术背心",
+      "englishName": "Medium Tac Vest",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "mediumbackpack",
+      "name": "特战背包",
+      "englishName": "Operator Backpack",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "pouch",
+      "name": "收纳包",
+      "englishName": "Pouch",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "largebackpack",
+      "name": "行军背包",
+      "englishName": "Ruck Backpack",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "smallbackpack",
+      "name": "侦察背包",
+      "englishName": "Scout Backpack",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "smalltacvest",
+      "name": "小型战术背心",
+      "englishName": "Small Tac Vest",
+      "kind": "equipment",
+      "category": "存储"
+    },
+    {
+      "id": "vehiclesupplycrate-container-free",
+      "name": "免费补给箱容器",
+      "englishName": "Free Supply Crate Container",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehiclestorageintermediate",
+      "name": "中级载具储物箱",
+      "englishName": "Intermediate Vehicle Storage",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehiclestoragelarge",
+      "name": "大型载具储物箱",
+      "englishName": "Large Vehicle Storage",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehiclestoragemedium",
+      "name": "中型载具储物箱",
+      "englishName": "Medium Vehicle Storage",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehiclestoragesmall",
+      "name": "小型载具储物箱",
+      "englishName": "Small Vehicle Storage",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "spawnvehicleaccessiblestorage",
+      "name": "出生点载具外部储物箱",
+      "englishName": "Spawn Vehicle Accessible Vehicle Storage",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "spawnvehiclestorage",
+      "name": "出生点载具储物箱",
+      "englishName": "Spawn Vehicle Vehicle Storage",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "smokegrenade-purple",
+      "name": "M18 信号手榴弹：降落区",
+      "englishName": "M18  Signal Grenade: Landing Zone",
+      "kind": "equipment",
+      "category": "建造类"
+    },
+    {
+      "id": "smokegrenade-green",
+      "name": "M18 信号手榴弹：补给请求",
+      "englishName": "M18  Signal Grenade: Supply Request",
+      "kind": "equipment",
+      "category": "建造类"
+    },
+    {
+      "id": "c4explosive",
+      "name": "C4 炸药",
+      "englishName": "C4 Charge",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "ied-trigger",
+      "name": "简易爆炸装置",
+      "englishName": "Improvised Explosive Device",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "smokegrenade-yellow",
+      "name": "M18 信号手榴弹：警报",
+      "englishName": "M18  Signal Grenade: Alert",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "smokegrenade-orange",
+      "name": "M18 信号手榴弹：载具受损",
+      "englishName": "M18  Signal Grenade: Damaged Vehicle",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "smokegrenade-blue",
+      "name": "M18 信号手榴弹：友军",
+      "englishName": "M18  Signal Grenade: Friendly",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "smokegrenade-red",
+      "name": "M18 信号手榴弹：敌军",
+      "englishName": "M18  Signal Grenade: Hostile",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "smokegrenade-black",
+      "name": "M18 烟雾手榴弹：黑色",
+      "englishName": "M18 Smoke Grenade: Black",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "smokegrenade-white",
+      "name": "M18 烟雾手榴弹：白色",
+      "englishName": "M18 Smoke Grenade: White",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "m67grenade",
+      "name": "M67 破片手榴弹",
+      "englishName": "M67 Frag Grenade",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "c4trigger",
+      "name": "遥控起爆器",
+      "englishName": "Remote Detonator",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "thrw_002",
+      "name": "闪光弹",
+      "englishName": "Flash Grenade",
+      "kind": "equipment",
+      "category": "投掷物"
+    },
+    {
+      "id": "goldm67grenade",
+      "name": "金色破片手榴弹",
+      "englishName": "Gold Frag Grenade",
+      "kind": "equipment",
+      "category": "投掷物"
+    },
+    {
+      "id": "thrw_001",
+      "name": "高爆手榴弹",
+      "englishName": "HE Grenade",
+      "kind": "equipment",
+      "category": "投掷物"
+    },
+    {
+      "id": "ied-explosive",
+      "name": "简易爆炸装置",
+      "englishName": "Improvised Explosive Device",
+      "kind": "equipment",
+      "category": "投掷物"
+    },
+    {
+      "id": "cons_003",
+      "name": "安非他命",
+      "englishName": "Amphetamine",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "stimpen",
+      "name": "肾上腺素注射笔",
+      "englishName": "Adrenaline Pen",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "bandage",
+      "name": "绷带",
+      "englishName": "Bandage",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "defibrillator-standard",
+      "name": "除颤器",
+      "englishName": "Defibrillator",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "resuscitator-cheap",
+      "name": "应急复苏器",
+      "englishName": "Emergency Resuscitator",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "enox-standard",
+      "name": "Enox",
+      "englishName": "Enox",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "resuscitator-standard",
+      "name": "野战复苏器",
+      "englishName": "Field Resuscitator",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "superbandage",
+      "name": "单兵急救包",
+      "englishName": "Individual First Aid Kit",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "medkit-standard",
+      "name": "医疗包",
+      "englishName": "Medical Bag",
+      "kind": "equipment",
+      "category": "医疗"
+    },
+    {
+      "id": "adrenalinepen",
+      "name": "肾上腺素注射笔",
+      "englishName": "Adrenaline Pen",
+      "kind": "equipment",
+      "category": "恢复品"
+    },
+    {
+      "id": "tool_003",
+      "name": "野战医疗包",
+      "englishName": "Field Medical Kit",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "parachute-basic",
+      "name": "基础降落伞",
+      "englishName": "Basic Parachute",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "repairtool-drill-heavy",
+      "name": "重型钻机",
+      "englishName": "Heavy Drill",
+      "kind": "equipment",
+      "category": "武器"
+    },
+    {
+      "id": "repairtool-drill-light",
+      "name": "轻型钻机",
+      "englishName": "Light Drill",
+      "kind": "equipment",
+      "category": "武器"
+    },
+    {
+      "id": "parachute-sport",
+      "name": "运动降落伞",
+      "englishName": "Sport Parachute",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "repairtool-wrench-standard",
+      "name": "扳手",
+      "englishName": "Wrench",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "binoculars",
+      "name": "望远镜",
+      "englishName": "Binoculars",
+      "kind": "equipment",
+      "category": "侦察"
+    },
+    {
+      "id": "dply_001",
+      "name": "钻机",
+      "englishName": "Drill Rig",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "dply_003",
+      "name": "维修站",
+      "englishName": "Repair Station",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "universaltool",
+      "name": "万能工具",
+      "englishName": "Universal Tool",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-pallet-munitionssupply",
+      "name": "弹药补给托盘",
+      "englishName": "Ammo Supply Pallet",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-pallet-buildsupply",
+      "name": "建造补给托盘",
+      "englishName": "Build Supply Pallet",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "fuelcan",
+      "name": "燃料罐",
+      "englishName": "Fuel Can",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-pallet-fuelsupply",
+      "name": "燃料补给托盘",
+      "englishName": "Fuel Supply Pallet",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-large-armoured",
+      "name": "大型装甲箱",
+      "englishName": "Large Armored Crate",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-large",
+      "name": "大型箱子",
+      "englishName": "Large Crate",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-pallet-sparepartssupply",
+      "name": "机械补给托盘",
+      "englishName": "Mechanical Supply Pallet",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-small-armoured",
+      "name": "小型装甲箱",
+      "englishName": "Small Armored Crate",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-small",
+      "name": "小型箱子",
+      "englishName": "Small Crate",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehiclesupplycrate-free",
+      "name": "免费补给箱",
+      "englishName": "Free Supply Crate",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "item",
+      "name": "燃料罐",
+      "englishName": "Fuel Can",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "fob",
+      "name": "前沿作战基地",
+      "englishName": "Forward Operating Base",
+      "kind": "equipment",
+      "category": "建造类"
+    },
+    {
+      "id": "buildtool-hammer-large",
+      "name": "大型锤子",
+      "englishName": "Large Hammer",
+      "kind": "equipment",
+      "category": "建造类"
+    },
+    {
+      "id": "buildtool-hammer-medium",
+      "name": "中型锤子",
+      "englishName": "Medium Hammer",
+      "kind": "equipment",
+      "category": "建造类"
+    },
+    {
+      "id": "buildtool-hammer-small",
+      "name": "小型锤子",
+      "englishName": "Small Hammer",
+      "kind": "equipment",
+      "category": "建造类"
+    },
+    {
+      "id": "atmine",
+      "name": "反坦克地雷",
+      "englishName": "AT Mine",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "claymore",
+      "name": "阔剑地雷",
+      "englishName": "Claymore",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "crowbar",
+      "name": "哈利根撬棍",
+      "englishName": "Halligan Bar",
+      "kind": "equipment",
+      "category": "攻击性"
+    },
+    {
+      "id": "ammocrate",
+      "name": "弹药箱",
+      "englishName": "Ammo Crate",
+      "kind": "equipment",
+      "category": "可部署"
+    },
+    {
+      "id": "spanner",
+      "name": "扳手",
+      "englishName": "Spanner",
+      "kind": "equipment",
+      "category": "可部署"
+    },
+    {
+      "id": "fists",
+      "name": "拳头",
+      "englishName": "Fists",
+      "kind": "equipment",
+      "category": "近战"
+    },
+    {
+      "id": "flares",
+      "name": "信号棒",
+      "englishName": "Flares",
+      "kind": "equipment",
+      "category": "反制措施"
+    },
+    {
+      "id": "infraredrangefinder",
+      "name": "红外测距仪",
+      "englishName": "Infrared Range Finder",
+      "kind": "equipment",
+      "category": "侦察"
+    },
+    {
+      "id": "monocular",
+      "name": "单筒望远镜",
+      "englishName": "Monocular",
+      "kind": "equipment",
+      "category": "侦察"
+    },
+    {
+      "id": "rangefinder",
+      "name": "测距仪",
+      "englishName": "Range Finder",
+      "kind": "equipment",
+      "category": "侦察"
+    },
+    {
+      "id": "keycard-alpha-1",
+      "name": "A 级钥匙卡",
+      "englishName": "Alpha Card",
+      "kind": "equipment",
+      "category": "钥匙卡"
+    },
+    {
+      "id": "keycard-alpha-2",
+      "name": "A 级钥匙卡",
+      "englishName": "Alpha Card",
+      "kind": "equipment",
+      "category": "钥匙卡"
+    },
+    {
+      "id": "vehicleammo-1",
+      "name": "弹药：1",
+      "englishName": "Ammo: 1",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehicleammo-10",
+      "name": "弹药：10",
+      "englishName": "Ammo: 10",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehicleammo-100",
+      "name": "弹药：100",
+      "englishName": "Ammo: 100",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehicleammo-25",
+      "name": "弹药：25",
+      "englishName": "Ammo: 25",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "vehicleammo-50",
+      "name": "弹药：50",
+      "englishName": "Ammo: 50",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "keycard-bravo-1",
+      "name": "B 级钥匙卡",
+      "englishName": "Bravo Card",
+      "kind": "equipment",
+      "category": "钥匙卡"
+    },
+    {
+      "id": "keycard-bravo-2",
+      "name": "B 级钥匙卡",
+      "englishName": "Bravo Card",
+      "kind": "equipment",
+      "category": "钥匙卡"
+    },
+    {
+      "id": "keycard-charlie-1",
+      "name": "C 级钥匙卡",
+      "englishName": "Charlie Card",
+      "kind": "equipment",
+      "category": "钥匙卡"
+    },
+    {
+      "id": "keycard-charlie-2",
+      "name": "C 级钥匙卡",
+      "englishName": "Charlie Card",
+      "kind": "equipment",
+      "category": "钥匙卡"
+    },
+    {
+      "id": "cons_001",
+      "name": "能量饮料",
+      "englishName": "Energy Drink",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "armr_005",
+      "name": "防破片背心",
+      "englishName": "Flak Jacket",
+      "kind": "equipment",
+      "category": "护甲"
+    },
+    {
+      "id": "tool_001",
+      "name": "红外夜视镜",
+      "englishName": "IR Goggles",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "tool_004",
+      "name": "手动复苏器",
+      "englishName": "Manual Resuscitator",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "dply_002",
+      "name": "迫击炮",
+      "englishName": "Mortars",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "cons_002",
+      "name": "止痛药",
+      "englishName": "Painkillers",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "tool_002",
+      "name": "标记瞄准镜",
+      "englishName": "Spotted Scope",
+      "kind": "equipment",
+      "category": "无"
+    },
+    {
+      "id": "musictape-05",
+      "name": "Breathe - Bariber",
+      "englishName": "Breathe - Bariber",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-03",
+      "name": "Giants (Remix) - The Quemists",
+      "englishName": "Giants (Remix) - The Quemists",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-01",
+      "name": "H4ZARD - Gigilow",
+      "englishName": "H4ZARD - Gigilow",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-09",
+      "name": "Helikopter - Fazlija",
+      "englishName": "Helikopter - Fazlija",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-08",
+      "name": "HORA - Irina Rimes & Jerry Heil",
+      "englishName": "HORA - Irina Rimes & Jerry Heil",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-07",
+      "name": "Luili-Luili - Masha Kondratenko",
+      "englishName": "Luili-Luili - Masha Kondratenko",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-04",
+      "name": "Ride of the Valkyries - Richard Wagner",
+      "englishName": "Ride of the Valkyries - Richard Wagner",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-06",
+      "name": "Tianqi Xu - Vodka Bomb",
+      "englishName": "Tianqi Xu - Vodka Bomb",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "musictape-02",
+      "name": "You Are Not Invited - MokuMoku",
+      "englishName": "You Are Not Invited - MokuMoku",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehicleturretantiair",
+      "name": "防空炮塔",
+      "englishName": "Anti-Air Turret",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehicleturretartillery",
+      "name": "火炮炮塔",
+      "englishName": "Artillery Turret",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehicleturretartillery-sandbox",
+      "name": "火炮炮塔",
+      "englishName": "Artillery Turret",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehicleturretheavy",
+      "name": "重型炮塔",
+      "englishName": "Heavy Turret",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehiclehelicoptercannon",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "heavytankmountedmachinegun",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehicleturretmachinegun",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehicleringturret",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "humveevehicleringturret",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "uralvehiclemachinegun",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "mistralaa",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "stn_02-maincannon",
+      "name": "机枪",
+      "englishName": "Machine Gun",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "stn_03-mainbarrel",
+      "name": "迫击炮管",
+      "englishName": "Mortar Barrel",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehiclehelicopterrockets",
+      "name": "火箭弹",
+      "englishName": "Rockets",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "vehiclehelicopterrockets_rot_03",
+      "name": "火箭弹",
+      "englishName": "Rockets",
+      "kind": "equipment",
+      "category": ""
+    },
+    {
+      "id": "stn_05-mainbarrel",
+      "name": "魔鬼鱼",
+      "englishName": "Stingray",
+      "kind": "equipment",
+      "category": ""
+    }
+  ]
+}

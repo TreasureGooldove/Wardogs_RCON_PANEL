@@ -27,5 +27,8 @@ dev = [
 where = ["."]
 include = ["app*"]
 
+[tool.setuptools.package-data]
+"app.game_rules" = ["item-catalog.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

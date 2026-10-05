@@ -45,9 +45,10 @@ class KillStore:
         other = db.execute('SELECT 1 FROM kill_rounds WHERE origin=? AND local_match_id=? AND NOT(instance_id=? AND game_match_id=?)', (origin, current['id'], instance, game_match)).fetchone()
         return None if other else current['id']
 
-    def ingest(self, origin, instance, events, at=None):
+    def ingest(self, origin, instance, events, at=None, *, include_inserted=False):
         stamp = (at or datetime.now(UTC)).isoformat()
         inserted = 0
+        inserted_events = []
         with self.db._connect() as db:
             db.execute('BEGIN IMMEDIATE')
             for event in events:
@@ -67,11 +68,28 @@ class KillStore:
                                (json.dumps([position['x'], position['y'], position['z']]), origin, instance, event['eventId']))
                 inserted += count
                 linked = self._associate(db, origin, instance, event['matchId'], event.get('mapName', ''), stamp)
+                if include_inserted:
+                    inserted_events.append({**event, 'localMatch': linked})
                 db.execute('''INSERT INTO kill_rounds VALUES(?,?,?,?,?,?,?)
                   ON CONFLICT(origin,instance_id,game_match_id) DO UPDATE SET last_received=excluded.last_received,
                   local_match_id=COALESCE(kill_rounds.local_match_id,excluded.local_match_id)''',
                   (origin, instance, event['matchId'], event.get('mapName', ''), linked, stamp, stamp))
-        return {'accepted': inserted, 'duplicates': len(events) - inserted}
+        result = {'accepted': inserted, 'duplicates': len(events) - inserted}
+        if include_inserted:
+            result['insertedEvents'] = inserted_events
+        return result
+
+    def register_item_round(self, origin, instance, event):
+        """Associate a timestamped producer item event with the current observed round."""
+        stamp = datetime.now(UTC).isoformat()
+        with self.db._connect() as db:
+            linked = self._associate(db, origin, instance, event['matchId'], event['mapName'], stamp)
+            if linked:
+                db.execute('''INSERT INTO kill_rounds VALUES(?,?,?,?,?,?,?)
+                  ON CONFLICT(origin,instance_id,game_match_id) DO UPDATE SET last_received=excluded.last_received,
+                  local_match_id=COALESCE(kill_rounds.local_match_id,excluded.local_match_id)''',
+                  (origin, instance, event['matchId'], event['mapName'], linked, stamp, stamp))
+        return linked
 
     def query(self, origin, match_id='current', limit=50, offset=0, game_match=None, instance=None):
         with self.db._connect() as db:

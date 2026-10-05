@@ -2,6 +2,7 @@ import { computed, ref, type App } from "vue";
 import zh from "./zh-CN.json";
 import zhTW from "./zh-TW.json";
 import antiTW from "./anticheat-zh-TW.json";
+import gameRules from "./game-rules.json";
 import en from "./en-US.json";
 import ja from "./ja-JP.json";
 import ko from "./ko-KR.json";
@@ -29,10 +30,10 @@ function savedLocale(): LocaleCode {
 export const locale = ref<LocaleCode>(savedLocale());
 const messages: Record<LocaleCode, Messages> = {
   "zh-CN": zh,
-  "zh-TW": { ...zhTW, ...antiTW },
-  "en-US": en,
-  "ja-JP": ja,
-  "ko-KR": ko
+  "zh-TW": { ...zhTW, ...antiTW, ...gameRules["zh-TW"] },
+  "en-US": { ...en, ...gameRules["en-US"] },
+  "ja-JP": { ...ja, ...gameRules["ja-JP"] },
+  "ko-KR": { ...ko, ...gameRules["ko-KR"] }
 };
 export const languages = [
   { code: "zh-CN", label: "简体中文", aiTranslated: false },

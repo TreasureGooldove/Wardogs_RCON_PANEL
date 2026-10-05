@@ -21,6 +21,9 @@ from app.api.bot import router as bot_router, BotStore
 from app.api.actions import router as actions_router
 from app.api.community import router as community_router
 from app.api.feed import router as feed_router
+from app.api.game_rules import router as game_rules_router
+from app.game_rules.store import GameRulesStore
+from app.game_rules.engine import GameRulesEngine
 from app.api.capabilities import router as capabilities_router
 from app.api.catalog import router as catalog_router
 from app.api.config_doc import router as config_doc_router
@@ -97,13 +100,15 @@ def create_app(
     warmup_store.initialize()
     auth_service = AuthService(database, settings)
     rcon_runtime = RconRuntime(settings, database, transport=rcon_transport)
+    game_rules_store = GameRulesStore(database)
+    game_rules_engine = GameRulesEngine(rcon_runtime, game_rules_store)
     steam_service = SteamProfileService.from_environment()
     rules_engine = RulesEngine(rcon_runtime, rules_store)
     warmup_engine = WarmupEngine(rcon_runtime, database, warmup_store)
     awards_store = AwardsStore(database)
     awards_engine = AwardsEngine(rcon_runtime,awards_store)
     history_collector = HistoryCollector(rcon_runtime, history_store, rules_engine,
-                                         warmup=warmup_engine,awards=awards_engine)
+                                         warmup=warmup_engine,awards=awards_engine,game_rules=game_rules_engine)
     reservation_expirer = ReservationExpirer(rcon_runtime, database)
     release_checker = ReleaseChecker()
 
@@ -168,6 +173,8 @@ def create_app(
     app.state.history_collector = history_collector
     app.state.community_tasks = community_tasks
     app.state.kill_store = kill_store
+    app.state.game_rules_store = game_rules_store
+    app.state.game_rules_engine = game_rules_engine
     app.state.anticheat_store = anticheat_store
     app.state.anticheat_engine = AntiEngine(rcon_runtime, anticheat_store)
     app.include_router(anticheat_router)
@@ -189,7 +196,7 @@ def create_app(
         request.state.request_id = str(uuid4())
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
-        if request.url.path.startswith(("/api/bot/", "/api/community/", "/api/steam/", "/api/ingest/")) or request.url.path == "/api/server/bot-api-status":
+        if request.url.path.startswith(("/api/bot/", "/api/community/", "/api/steam/", "/api/ingest/", "/api/game-rules")) or request.url.path == "/api/server/bot-api-status":
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -206,7 +213,7 @@ def create_app(
         steam_router,
         updates_router,
         bot_router,
-        community_router, feed_router,
+        community_router, feed_router, game_rules_router,
     ):
         app.include_router(router)
 
