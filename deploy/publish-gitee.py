@@ -55,6 +55,21 @@ def publish(token, version, package, checksums, notes):
     digest = hashlib.sha256(data).hexdigest()
     if not re.search(r'(?m)^' + digest + r'\s+\*?' + re.escape(package.name) + r'\s*$', checksums.read_text()):
         raise ValueError('checksum_mismatch')
+    # A partially completed publication is resumed using read-only discovery;
+    # never blindly replay create/upload after an uncertain network error.
+    releases = api('/releases?per_page=100', token)
+    release = next((r for r in releases if r.get('tag_name') == version), None)
+    if not release:
+        release = api('/releases', token, {'tag_name': version, 'name': version,
+                      'body': notes.read_text(encoding='utf-8-sig'), 'target_commitish': 'main', 'prerelease': False})
+    assets = release.get('assets', [])
+    if isinstance(assets, dict):
+        assets = assets.get('links', [])
+    existing_names = {x.get('name') for x in assets if isinstance(x, dict)}
+    for asset in (package, checksums):
+        if asset.name not in existing_names:
+            api('/releases/' + str(release['id']) + '/attach_files', token, multipart=(asset.name, asset.read_bytes()))
+    print(REPO_URL + '/releases/tag/' + version, flush=True)
     # Fallback branch is updated only by the publisher with prebuilt artifacts.
     manifest = {'version': version, 'url': REPO_URL + '/raw/updates/packages/' + package.name,
                 'sha256': digest, 'publishedAt': datetime.now(timezone.utc).isoformat()}
@@ -71,7 +86,7 @@ def publish(token, version, package, checksums, notes):
                 try:
                     result = subprocess.run(['git', '-c', 'credential.helper=',
                         '-c', 'http.version=HTTP/1.1', '-c', 'http.lowSpeedLimit=512',
-                        '-c', 'http.lowSpeedTime=30', *args], cwd=checkout if checkout.exists() else None,
+                        '-c', 'http.lowSpeedTime=30', '-c', 'http.postBuffer=10485760', *args], cwd=checkout if checkout.exists() else None,
                         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
                     if result.returncode == 0:
                         return result.stdout
@@ -96,21 +111,7 @@ def publish(token, version, package, checksums, notes):
             git('-c', 'user.name=Wardogs Release', '-c', 'user.email=release@users.noreply.github.com', 'commit', '-m', '发布更新包 ' + version)
             git('push', 'origin', 'HEAD:updates')
     print('Gitee fallback manifest published', flush=True)
-    # A partially completed publication is resumed using read-only discovery;
-    # never blindly replay create/upload after an uncertain network error.
-    releases = api('/releases?per_page=100', token)
-    release = next((r for r in releases if r.get('tag_name') == version), None)
-    if not release:
-        release = api('/releases', token, {'tag_name': version, 'name': version,
-                      'body': notes.read_text(encoding='utf-8-sig'), 'target_commitish': 'main', 'prerelease': False})
-    assets = release.get('assets', [])
-    if isinstance(assets, dict):
-        assets = assets.get('links', [])
-    existing_names = {x.get('name') for x in assets if isinstance(x, dict)}
-    for asset in (package, checksums):
-        if asset.name not in existing_names:
-            api('/releases/' + str(release['id']) + '/attach_files', token, multipart=(asset.name, asset.read_bytes()))
-    print(REPO_URL + '/releases/tag/' + version, flush=True)
+
 
 
 if __name__ == '__main__':

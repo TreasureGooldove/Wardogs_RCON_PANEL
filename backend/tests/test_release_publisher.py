@@ -57,7 +57,8 @@ def test_read_retry_and_uncertain_write_boundary(tmp_path, monkeypatch, fail_pus
     if fail_push:
         with pytest.raises(RuntimeError, match='inspect remote state'):
             module.publish('fictional-token', 'v9.9.0', package, sums, notes)
-        assert calls.count('push') == 1 and not api_calls
+        assert calls.count('push') == 1
+        assert api_calls == ['/releases?per_page=100']  # Release discovery occurs before a fallback push.
     else:
         module.publish('fictional-token', 'v9.9.0', package, sums, notes)
         assert api_calls == ['/releases?per_page=100']  # Existing attachments are not uploaded again.
