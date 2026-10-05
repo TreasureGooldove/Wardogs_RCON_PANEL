@@ -10,12 +10,13 @@ Sidebar: **Faction and item restrictions**. Both automation features are disable
 
 - Separate limits for Lonestar, Valkyra, and Manticore; `0` means unlimited.
 - Optionally enforce a maximum population difference of 1–1000, default 2.
-- Configure minimum online players, violation grace period (default 10 seconds), and transfer interval (default 15 seconds).
+- Configure minimum online players, violation grace period (new rules default to 0 seconds), and transfer interval (new rules default to 5 seconds). Existing saved values are preserved.
+- Evaluate every 5 seconds. Move players from factions exceeding capacity or the allowed population difference into an eligible less populated faction; equal-population destinations are selected randomly. Missing or unassigned factions are not treated as violations.
 - Transfer one player at a time, preferring recently observed arrivals. Players first seen in the same sample are ordered deterministically by SteamID, not actual join time.
 - Reduce capacity excess first, then improve balance. Do not transfer to a full faction. If there is insufficient capacity, report no destination without kicking players.
 - Unknown factions, missing actionable SteamIDs, unsupported transfer capability, or a disabled owner prevent transfers.
 
-Uses existing observations: while watched, players/status approximately every 1/2 seconds; with players, 2/5 seconds; idle, 30/30 seconds, with existing network backoff. No independent player polling is added. Requires `PANEL_HISTORY_ENABLED=true`.
+Uses existing observations: while watched, players/status approximately every 1/2 seconds; with players, 2/5 seconds; idle, 30/30 seconds. While faction control is armed, the shared collector obtains fresh players and status every 5 seconds without starting another polling loop. Existing failure and rate-limit backoff still apply. Requires `PANEL_HISTORY_ENABLED=true`. A minimum of 0 imposes no population gate; a minimum of 20 allows enabling beforehand but prevents transfers below 20 players.
 
 This corrects populations after sampling; it cannot prevent a player from joining first or guarantee compliance at every instant. Transfers may affect ongoing combat. Displayed counts are the latest observations.
 
@@ -63,6 +64,16 @@ This fictional historical timestamp will not trigger an action. Send the actual 
 Responses add `itemUsesAccepted` and `itemUsesDuplicates`. Existing `accepted/duplicates` still count only kill events; `ignored` counts unknown event types. **Event acceptance does not mean a kill was performed.** The latest extension receipt indicator establishes receipt only, not stock-server support or coverage of every player.
 
 ## Boundaries and records
+
+### Emergency stop in the top bar
+
+The owner can click **Stop RCON** and enter their password to block new RCON requests and attempt to close existing connections. Collection, automation, bot management and manual RCON operations stop; the game server is not shut down or restarted. The stopped state persists in the panel database across panel restarts and connection-settings changes. Already dispatched requests may have executed and cannot be undone. Interrupted writes with unknown results remain uncertain and are not retried automatically.
+
+**Resume RCON** also requires the owner password. It changes the target revision, so faction, item and anti-cheat automation must be confirmed again. Other previously enabled features, such as rule announcements and warmup rewards, continue under their saved configuration after fresh sampling. Local history remains readable.
+
+Endpoints: `GET /api/server/connection` for authenticated users; `POST /api/server/connection/stop` and `/resume` for the owner with same-origin verification and a password request body. These are not exposed through the bot HTTP gateway. Stopped upstream operations return `503 rcon_stopped`; a wrong password returns `401`, and a subuser write returns `403`.
+
+### Automated rules
 
 - Each operation has a durable single-attempt receipt and panel audit. Uncertain writes are not retried.
 - Timeouts or audit completion failures pause the corresponding rules. After verifying the result, the owner must confirm and save again to resume.

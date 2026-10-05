@@ -2,6 +2,7 @@
 import { useNav } from "@/layout/hooks/useNav";
 import LaySearch from "../lay-search/index.vue";
 import PanelUpdates from "@/components/PanelUpdates.vue";
+import RconEmergencyStop from "@/components/RconEmergencyStop.vue";
 import LanguageSelector from "@/components/LanguageSelector.vue";
 import LayNavMix from "../lay-sidebar/NavMix.vue";
 import LaySidebarFullScreen from "../lay-sidebar/components/SidebarFullScreen.vue";
@@ -47,6 +48,7 @@ const {
     </div>
 
     <div v-if="layout === 'vertical'" class="vertical-header-right">
+      <RconEmergencyStop />
       <LanguageSelector />
       <PanelUpdates />
       <!-- 菜单搜索 -->

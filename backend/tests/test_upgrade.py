@@ -42,7 +42,8 @@ def test_empty_release_falls_back_and_auto_chooses_newest():
             result = await checker.check()
             assert result['source'] == 'gitee'
             assert result['fallback'] and result['installable'] and result['updateAvailable']
-            assert (await checker.check(refresh=True))['cached']
+            assert (await checker.check())['cached']
+            assert not (await checker.check(refresh=True))['cached']
         finally:
             await checker.close()
     asyncio.run(scenario())

@@ -2,13 +2,14 @@
 from datetime import UTC, datetime
 import json
 import logging
+from secrets import choice
 from time import monotonic
 
 from app.errors import PanelError
 from app.history.kills import map_key
 from app.rcon.actions import ActionService
 from app.rcon.players import normalize_players
-from app.rcon.routes import RouteName, WriteName
+from app.rcon.routes import RouteName, WriteName, write_route_for
 from .models import FACTIONS, FactionSettings, ItemSettings, faction_name
 
 _LOG = logging.getLogger(__name__)
@@ -44,7 +45,8 @@ def faction_plan(players, settings):
                 choices.append((score(changed), counts[target], source, target))
     if not choices:
         return counts, None, 'no_destination'
-    best = min(choices)
+    best_rank = min((item[0], item[1]) for item in choices)
+    best = choice([item for item in choices if (item[0], item[1]) == best_rank])
     return counts, (best[2], best[3]), 'over_limit' if excess else 'unbalanced'
 
 
@@ -57,12 +59,14 @@ class GameRulesEngine:
         self._violation = None
         self._since = 0.0
         self._last_sample = 0.0
+        self._next_factions = 0.0
         self._joined = {}
         self._paused = set()
 
     def reset(self):
         self._generation = self._violation = None
         self._since = self._last_sample = 0.0
+        self._next_factions = 0.0
         self._joined = {}
         self.observed_revision = None
         self.last_factions = {'counts': dict.fromkeys(FACTIONS, 0), 'state': 'no_samples', 'observedAt': None}
@@ -85,7 +89,8 @@ class GameRulesEngine:
         # Write permission, actor state and target revision checked immediately before claim.
         if self.ready(kind) is None:
             return
-        await runtime.capabilities.require_write(action)
+        spec = write_route_for(action)
+        await runtime.capabilities.require_advertised(spec.method, spec.path)
         key = self.store.claim(origin, kind, config, sid, details, cooldown, per_player=kind == 'items')
         if not key:
             return
@@ -120,12 +125,17 @@ class GameRulesEngine:
         """Collector calls with its lock held and a newly successful player sample."""
         runtime = self.runtime
         config = self.ready('factions')
+        clock = monotonic()
+        if self._generation != (config or {}).get('generation'):
+            self._next_factions = 0.
+        elif config and clock < self._next_factions:
+            return
+        self._next_factions = clock + 5.
         settings = FactionSettings.model_validate_json(config['settings']) if config else FactionSettings()
         counts, plan, state = faction_plan(players, settings)
         self.last_factions = {'counts': counts, 'state': state if config else 'disabled',
                               'observedAt': datetime.now(UTC).isoformat()}
         self.observed_revision = runtime.target_revision
-        clock = monotonic()
         active_ids = {p.get('steamId') for p in players if p.get('steamId')}
         if self._generation != (config or {}).get('generation'):
             self._violation = None
@@ -135,7 +145,7 @@ class GameRulesEngine:
         for sid in sorted(active_ids):
             self._joined.setdefault(sid, clock)
         # Observation gaps reset the continuous-violation grace period.
-        if clock - self._last_sample > runtime.cadence[0] * 2 + 1:
+        if clock - self._last_sample > max(5., runtime.cadence[0]) * 2 + 1:
             self._violation = None
         self._last_sample = clock
         if config is None or plan is None:
@@ -146,7 +156,8 @@ class GameRulesEngine:
             self.last_factions['state'] = 'unknown_faction'
             self._violation = None
             return
-        if self._violation != plan:
+        # A random tie-break for the destination must not reset a source's grace period.
+        if self._violation is None or self._violation[0] != plan[0]:
             self._violation, self._since = plan, clock
         if clock - self._since < settings.stableSeconds:
             self.last_factions['state'] = 'waiting_stability'
@@ -197,7 +208,8 @@ class GameRulesEngine:
         if not matches:
             return
         try:
-            await runtime.capabilities.require_write(WriteName.KILL)
+            spec = write_route_for(WriteName.KILL)
+            await runtime.capabilities.require_advertised(spec.method, spec.path)
             await runtime.capabilities.require_advertised('GET', '/v1/players')
             await runtime.capabilities.require_advertised('GET', '/v1/status')
             # Explicitly verify fresh map and online target; no stale cache may authorize punishment.

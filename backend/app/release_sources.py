@@ -135,7 +135,7 @@ class ReleaseChecker:
         async with self.lock:
             now = monotonic()
             saved = self.cached.get(source)
-            if saved and now - saved[0] < (60 if refresh else 3600):
+            if saved and not refresh and now - saved[0] < 300:
                 return {**saved[1], "cached": True}
             names = ("gitee", "github") if source == "auto" else (source,)
             results = await asyncio.gather(*(self._source(name) for name in names))

@@ -146,14 +146,13 @@ class ReferenceReadService:
     async def _get(
         self, route: RouteName, path: str, params: dict[str, str] | None
     ) -> dict[str, Any] | list[Any]:
-        client = self.client._get_client()
+        self.client._get_client()
         assert self.client.target is not None
         attempts = self.client.target.read_retries + 1
         for attempt in range(attempts):
             try:
-                async with self.client._semaphore:
-                    async with client.stream("GET", path, params=params) as response:
-                        return await self.client._decode(response)
+                async with self.client.exchange("GET", path, params=params) as response:
+                    return await self.client._decode(response)
             except httpx.DecodingError as exc:
                 raise PanelError("invalid_upstream") from exc
             except httpx.TimeoutException as exc:

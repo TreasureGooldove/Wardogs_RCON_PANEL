@@ -34,8 +34,8 @@ class FactionSettings(ClosedModel):
     balanceEnabled: StrictBool = True
     maxDifference: StrictInt = Field(default=2, ge=1, le=1000)
     minimumPlayers: StrictInt = Field(default=0, ge=0, le=1000)
-    stableSeconds: StrictInt = Field(default=10, ge=0, le=300)
-    cooldownSeconds: StrictInt = Field(default=15, ge=5, le=600)
+    stableSeconds: StrictInt = Field(default=0, ge=0, le=300)
+    cooldownSeconds: StrictInt = Field(default=5, ge=5, le=600)
 
 
 class RestrictedItem(ClosedModel):

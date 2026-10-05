@@ -85,6 +85,11 @@ class Database:
         with self._connect() as connection:
             connection.executescript(
                 """
+                CREATE TABLE IF NOT EXISTS rcon_connection_control (
+                    id INTEGER PRIMARY KEY CHECK(id = 1),
+                    paused INTEGER NOT NULL CHECK(paused IN (0, 1)),
+                    updated_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS admins (
                     id TEXT PRIMARY KEY,
                     username TEXT NOT NULL,
@@ -181,6 +186,17 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_moderation_audit_warning_target "
                 "ON moderation_audit(target_origin, steam_id, action, id DESC)"
             )
+
+    def connection_control(self) -> dict:
+        with self._connect() as connection:
+            row = connection.execute('SELECT paused, updated_at FROM rcon_connection_control WHERE id=1').fetchone()
+        return {'paused': bool(row['paused']), 'updatedAt': row['updated_at']} if row else {'paused': False, 'updatedAt': None}
+
+    def set_connection_paused(self, paused: bool) -> dict:
+        stamp = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            connection.execute('INSERT INTO rcon_connection_control VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET paused=excluded.paused,updated_at=excluded.updated_at', (int(paused), stamp))
+        return {'paused': paused, 'updatedAt': stamp}
 
     def reserved_metadata(self, origin: str) -> dict[str, dict]:
         with self._connect() as connection:

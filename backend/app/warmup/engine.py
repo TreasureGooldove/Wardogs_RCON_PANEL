@@ -54,6 +54,10 @@ class WarmupEngine:
         self._observed_at = monotonic()
         self._sample_seq += 1
 
+    def reset_observation(self) -> None:
+        self._observed_at = 0.
+        self._online = {}
+
     def status(self, origin: str) -> dict:
         config = self.store.config()
         last = self.store.latest(origin)

@@ -9,7 +9,7 @@ from app.api.auth import require_admin
 from app.api.community import _check, _target
 from app.errors import PanelError
 from app.game_rules.models import CATALOG, FactionSettings, ItemSettings
-from app.rcon.routes import WriteName
+from app.rcon.routes import WriteName, write_route_for
 
 router = APIRouter(prefix='/api/game-rules', dependencies=[Depends(require_admin)], tags=['game rules'])
 
@@ -54,7 +54,8 @@ async def _save(payload, kind, request):
             request.app.state.auth_service.verify_current_password(request, payload.password.get_secret_value())
             if kind == 'items' and (not request.app.state.settings.feed_token or request.app.state.settings.feed_origin != origin):
                 raise PanelError('invalid_selection')
-            await runtime.capabilities.require_write(WriteName.CHANGE_FACTION if kind == 'factions' else WriteName.KILL)
+            spec = write_route_for(WriteName.CHANGE_FACTION if kind == 'factions' else WriteName.KILL)
+            await runtime.capabilities.require_advertised(spec.method, spec.path)
         settings = payload.model_dump(exclude={'targetRevision', 'acknowledgeRisk', 'password'})
         request.app.state.database.append_moderation_audit(actor.id, 'gameRulesSettings_' + kind, '', 'accepted',
             'enabled=' + str(payload.enabled) + '; sha256=' + sha256(json.dumps(settings).encode()).hexdigest(),

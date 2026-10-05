@@ -11,19 +11,25 @@ from app.updates import APP_VERSION, LATEST_API, ReleaseChecker
 def test_release_comparison_cache_and_safe_link():
     async def scenario():
         calls = []
+        version = ["v0.10.0"]
         def handler(request):
             calls.append(request)
             if str(request.url) != LATEST_API:
                 return httpx.Response(404)
             assert "authorization" not in request.headers
-            return httpx.Response(200, json={"tag_name": "v0.10.0", "draft": False,
+            return httpx.Response(200, json={"tag_name": version[0], "draft": False,
                 "prerelease": False, "html_url": "https://evil.invalid/", "published_at": None})
         checker = ReleaseChecker(httpx.MockTransport(handler))
         result = await checker.check(source="github")
         assert result["updateAvailable"] is True
         assert result["releaseUrl"].endswith("/Wardogs_RCON_PANEL/releases/tag/v0.10.0")
-        assert (await checker.check(refresh=True, source="github"))["cached"] is True
+        assert (await checker.check(source="github"))["cached"] is True
         assert len(calls) == 2
+        version[0] = "v0.11.0"
+        refreshed = await checker.check(refresh=True, source="github")
+        assert refreshed["cached"] is False
+        assert refreshed["latestVersion"] == "v0.11.0"
+        assert len(calls) == 4
         await checker.close()
     asyncio.run(scenario())
 

@@ -10,6 +10,7 @@ export type ApiErrorCode =
   | "username_exists"
   | "rate_limited"
   | "rcon_unconfigured"
+  | "rcon_stopped"
   | "rcon_auth_failed"
   | "rcon_unavailable"
   | "rcon_timeout"
@@ -49,6 +50,7 @@ const messages: Record<ApiErrorCode, string> = {
   username_exists: "用户名已存在，请更换用户名",
   rate_limited: "登录尝试过于频繁，请稍后重试",
   rcon_unconfigured: "服务器连接尚未配置",
+  rcon_stopped: "RCON 连接已被管理员紧急停止，请由主账号确认后恢复",
   rcon_auth_failed: "服务器查询凭据无效，请联系管理员",
   rcon_unavailable: "暂时无法连接服务器",
   rcon_timeout: "服务器查询超时",

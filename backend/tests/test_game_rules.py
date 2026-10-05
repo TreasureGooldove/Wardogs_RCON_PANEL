@@ -14,7 +14,8 @@ from app.game_rules.store import GameRulesStore
 from app.history.collector import HistoryCollector
 from app.main import create_app
 from app.rcon.actions import ActionService
-from app.rcon.routes import RouteName, WriteName
+from app.rcon.capabilities import CapabilityService
+from app.rcon.routes import RouteName, WriteName, write_route_for
 
 ORIGIN = 'https://fictional-game.example.test'
 PUBLIC = 'https://fictional-panel.example.test'
@@ -96,6 +97,7 @@ async def test_collector_passes_shared_fresh_samples_without_extra_polling(panel
     rules = AsyncMock()
     # Reset is synchronous; evaluation is asynchronous.
     rules.reset = lambda: None
+    rules.ready = lambda kind: None
     collector = HistoryCollector(runtime, panel.state.history_store, game_rules=rules)
     await collector.sample(scheduled=True)
     rules.factions_unlocked.assert_awaited_once_with(collector.players['players'], collector.status)
@@ -259,13 +261,68 @@ async def test_rule_api_owner_password_origin_revision_and_read_only(panel):
 @pytest.mark.asyncio
 async def test_server_switch_and_unsupported_capability_do_not_act(panel):
     enable(panel, 'items', items=[{'itemId': 'm4', 'killCauses': ['M4']}])
-    panel.state.rcon_runtime.capabilities.require_write.side_effect = PanelError('action_unsupported')
+    panel.state.rcon_runtime.capabilities.require_advertised.side_effect = PanelError('action_unsupported')
     await push(panel, [kill_event('unsupported')])
     panel.state.send.assert_not_called()
-    panel.state.rcon_runtime.capabilities.require_write.side_effect = None
+    panel.state.rcon_runtime.capabilities.require_advertised.side_effect = None
     panel.state.rcon_runtime.target_revision = 'different-server-revision'
     await push(panel, [kill_event('stale-config')])
     panel.state.send.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kind', ['factions', 'items'])
+@pytest.mark.parametrize('supported', [True, False])
+async def test_real_capability_service_authorizes_rules_without_population_gate(panel, kind, supported):
+    """Use actual capability parsing; only upstream responses/actions are mocked."""
+    runtime = panel.state.rcon_runtime
+    spec = write_route_for(WriteName.CHANGE_FACTION if kind == 'factions' else WriteName.KILL)
+    routes = ['GET /v1/players', 'GET /v1/status']
+    if supported:
+        routes.append(spec.capability_key)
+    old_read = runtime.client.request.side_effect
+    async def read(route):
+        if route is RouteName.CAPABILITIES:
+            return {'routes': routes}
+        return await old_read(route)
+    runtime.client.request.side_effect = read
+    runtime.capabilities = CapabilityService(runtime.client)
+    token = panel.state.auth_service.login('owner', PASSWORD, 'test')[1]
+    values = {'minimumPlayers': 20, 'maxDifference': 1, 'stableSeconds': 0} if kind == 'factions' else {
+        'items': [{'itemId': 'm4', 'killCauses': ['M4']}]}
+    settings = (FactionSettings if kind == 'factions' else ItemSettings)(enabled=True, **values)
+    body = {**settings.model_dump(), 'targetRevision': runtime.target_revision,
+            'password': PASSWORD, 'acknowledgeRisk': True}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC,
+                                headers={'Origin': PUBLIC}, cookies={'panel_session': token}) as client:
+        result = await client.put('/api/game-rules/' + kind, json=body)
+        if not supported:
+            assert result.status_code == 501 and result.json()['code'] == 'action_unsupported'
+            panel.state.send.assert_not_called()
+            return
+        assert result.status_code == 200
+        engine = panel.state.game_rules_engine
+        if kind == 'factions':
+            # Saving enabled succeeds below 20 players; only execution waits.
+            await engine.factions_unlocked(roster(), STATUS)
+            assert engine.last_factions['state'] == 'below_minimum'
+            panel.state.send.assert_not_called()
+            body['minimumPlayers'] = 0
+            assert (await client.put('/api/game-rules/factions', json=body)).status_code == 200
+            await engine.factions_unlocked(roster(), STATUS)
+        else:
+            assert (await push(panel, [kill_event('real-capability')])).status_code == 200
+        assert panel.state.send.await_count == 1
+        # Removing a previously advertised route must block the next action.
+        routes.remove(spec.capability_key)
+        runtime.capabilities.invalidate()
+        enable(panel, kind, **({**values, 'minimumPlayers': 0} if kind == 'factions' else values))
+        if kind == 'factions':
+            await engine.factions_unlocked(roster(), STATUS)
+            assert engine.last_factions['state'] == 'action_unsupported'
+        else:
+            await push(panel, [kill_event('capability-revoked')])
+        assert panel.state.send.await_count == 1
 
 
 def test_invalid_rules_do_not_silently_coerce_or_guess():
@@ -275,3 +332,61 @@ def test_invalid_rules_do_not_silently_coerce_or_guess():
     with pytest.raises(ValidationError): ItemSettings(items=[{'itemId': 'm4', 'killCauses': ['M4']}, {'itemId': 'sks', 'killCauses': ['m4']}])
     with pytest.raises(ValidationError): ItemUsedEvent(type='itemUsed', eventId='test', matchId='round', mapName='map', steamId=SID,
         itemId='m4', itemKind='equipment', occurredAt=datetime.now(UTC))
+
+
+def test_equal_destination_populations_use_random_selection(monkeypatch):
+    import app.game_rules.engine as module
+    candidates = []
+    def choose(options):
+        candidates.append(options)
+        return options[-1]
+    monkeypatch.setattr(module, 'choice', choose)
+    _, plan, _ = faction_plan(roster((3, 1, 1)), FactionSettings(maxDifference=1))
+    assert {item[3] for item in candidates[0]} == {'Valkyra', 'Manticore'}
+    assert plan[1] == candidates[0][-1][3]
+    _, plan, _ = faction_plan(roster((4, 2, 1)), FactionSettings(maxDifference=1))
+    assert plan == ('Lonestar', 'Manticore')
+
+
+@pytest.mark.asyncio
+async def test_faction_evaluation_waits_five_seconds_without_losing_grace(panel, monkeypatch):
+    clock = [100.]
+    monkeypatch.setattr('app.game_rules.engine.monotonic', lambda: clock[0])
+    runtime = panel.state.rcon_runtime
+    runtime.cadence = (1., 2.)
+    enable(panel, 'factions', maxDifference=1, stableSeconds=10)
+    engine = panel.state.game_rules_engine
+    await engine.factions_unlocked(roster(), STATUS)
+    clock[0] = 104.
+    await engine.factions_unlocked(roster(), STATUS)
+    assert engine._last_sample == 100.
+    clock[0] = 105.
+    await engine.factions_unlocked(roster(), STATUS)
+    assert engine.last_factions['state'] == 'waiting_stability'
+    clock[0] = 110.
+    await engine.factions_unlocked(roster(), STATUS)
+    assert panel.state.send.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_active_faction_rule_gets_fresh_samples_every_five_seconds_on_empty_server(panel, monkeypatch):
+    clock = [100.]
+    monkeypatch.setattr('app.history.collector.monotonic', lambda: clock[0])
+    monkeypatch.setattr('app.game_rules.engine.monotonic', lambda: clock[0])
+    runtime = panel.state.rcon_runtime
+    runtime.watch_until = 0.
+    enable(panel, 'factions')
+    async def read(route):
+        if route is RouteName.STATUS: return {**STATUS, 'playerCount':0}
+        if route is RouteName.PLAYERS: return {'players':[]}
+        raise PanelError('route_unsupported')
+    runtime.client.request.side_effect = read
+    collector = HistoryCollector(runtime, panel.state.history_store, game_rules=panel.state.game_rules_engine)
+    await collector.sample(scheduled=True)
+    before = runtime.client.request.await_count
+    clock[0] = 104.
+    assert not await collector.sample(scheduled=True)
+    assert runtime.client.request.await_count == before
+    clock[0] = 105.
+    assert await collector.sample(scheduled=True)
+    assert runtime.client.request.await_count == before + 2

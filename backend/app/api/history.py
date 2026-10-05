@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/history", dependencies=[Depends(require_admin)])
 
 async def _origin(request: Request) -> str:
     async with request.app.state.rcon_runtime.lock:
-        target = request.app.state.rcon_runtime.target
+        target = request.app.state.rcon_runtime.client.target
         return target.origin if target else ""
 
 

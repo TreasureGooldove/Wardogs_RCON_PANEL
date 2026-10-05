@@ -20,7 +20,7 @@ class ReservationExpirer:
     async def run_once(self) -> None:
         runtime = self.runtime
         async with runtime.lock:
-            target = runtime.client.target
+            target = runtime.target
             if target is None:
                 return
             origin = target.origin

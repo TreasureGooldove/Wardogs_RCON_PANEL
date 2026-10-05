@@ -1,6 +1,7 @@
 """Bounded Wardogs HTTP client with fixed read and moderation routes."""
 
 import asyncio
+from contextlib import asynccontextmanager
 import json
 import logging
 import re
@@ -35,6 +36,22 @@ class RconClient:
         self._client: httpx.AsyncClient | None = None
         self._semaphore = asyncio.Semaphore(4)
         self.retry_after = 5.0
+        self.connection_guard = lambda: None
+
+    @asynccontextmanager
+    async def exchange(self, method, path, **kwargs):
+        """Check the stop latch again after waiting for a connection slot."""
+        self.connection_guard()
+        client = self._get_client()
+        async with self._semaphore:
+            self.connection_guard()
+            try:
+                async with client.stream(method, path, **kwargs) as response:
+                    yield response
+            except (httpx.TransportError, RuntimeError) as exc:
+                if client.is_closed:
+                    raise PanelError('rcon_stopped' if method == 'GET' else 'action_uncertain') from exc
+                raise
 
     def _hold_hint(self,response):
         try:
@@ -45,6 +62,7 @@ class RconClient:
             self.retry_after=5.0
 
     def _get_client(self) -> httpx.AsyncClient:
+        self.connection_guard()
         if self.target is None:
             raise PanelError("rcon_unconfigured")
         if self._client is None:
@@ -76,19 +94,18 @@ class RconClient:
     ) -> dict[str, Any] | list[Any]:
         """Fetch a named GET route. No caller-selected path, method or query exists."""
         spec = route_for(route)
-        client = self._get_client()
+        self._get_client()
         assert self.target is not None
         attempts = self.target.read_retries + 1
         started = monotonic()
         for attempt in range(attempts):
             try:
-                async with self._semaphore:
-                    headers = {"Cache-Control": "no-cache"} if route is RouteName.CONFIG else None
-                    async with client.stream("GET", spec.path, headers=headers) as response:
-                        decoded = await self._decode(response)
-                        if response_headers is not None:
-                            response_headers.clear()
-                            response_headers.update(response.headers)
+                headers = {"Cache-Control": "no-cache"} if route is RouteName.CONFIG else None
+                async with self.exchange("GET", spec.path, headers=headers) as response:
+                    decoded = await self._decode(response)
+                    if response_headers is not None:
+                        response_headers.clear()
+                        response_headers.update(response.headers)
                 _LOG.info(
                     "Wardogs RCON query completed: route=%s duration_ms=%d result=ok",
                     spec.name.value,
@@ -128,16 +145,15 @@ class RconClient:
             or any(ord(char) < 32 and char not in "\t" for char in reason)
         ):
             raise PanelError("invalid_moderation_reason")
-        client = self._get_client()
+        self.connection_guard()
         path = spec.path.replace("{steamId}", steam_id)
         payload: dict[str, str] = {"reason": reason.strip()} if reason.strip() else {}
         if action is WriteName.BAN:
             payload["steamId"] = steam_id
         started = monotonic()
         try:
-            async with self._semaphore:
-                async with client.stream(spec.method, path, json=payload) as response:
-                    await self._decode_write(response)
+            async with self.exchange(spec.method, path, json=payload) as response:
+                await self._decode_write(response)
         except (httpx.TimeoutException, httpx.TransportError, httpx.DecodingError) as exc:
             _LOG.warning(
                 "Wardogs RCON moderation result uncertain: action=%s duration_ms=%d",

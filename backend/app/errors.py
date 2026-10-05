@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 
 _ERRORS: dict[str, tuple[int, str]] = {
+    "rcon_stopped": (503, "RCON 连接已被管理员紧急停止，请由主账号确认后恢复"),
     "feed_body_too_large": (413, "击杀推送超过大小限制"),
     "feed_invalid_batch": (400, "击杀事件格式无效"),
     "bot_request_conflict": (409, "请求编号已用于不同内容，请核查原操作"),

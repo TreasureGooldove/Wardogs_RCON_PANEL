@@ -145,7 +145,7 @@ onMounted(() => {
   void check();
   timer = setInterval(() => {
     if (!document.hidden) void check();
-  }, 3600000);
+  }, 300000);
   pollTimer = setInterval(() => {
     if (visible.value) void pollState();
   }, 5000);

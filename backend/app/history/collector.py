@@ -21,6 +21,7 @@ class HistoryCollector:
         self.game_rules=game_rules;self.status_at=0.
         self.revision='';self.status=None;self.players=None;self.failures=0
         self.players_due=0.;self.status_due=0.;self.lists_at=0.;self.identity_at=0.
+        self.factions_due=0.
         self.hold_until=0.;self.health_unserved=False;self.tier='idle'
 
     def cadence(self,now=None):
@@ -54,11 +55,14 @@ class HistoryCollector:
                 self.players_due=self.status_due=self.lists_at=self.identity_at=self.hold_until=0.
                 self.failures=0;self.health_unserved=False
                 self.status_at=0.
+                self.factions_due=0.
                 if self.game_rules:self.game_rules.reset()
             if now<self.hold_until:return False
             p_period,s_period=self.cadence(now);self.runtime.cadence=(p_period,s_period)
-            p_due=not scheduled or now>=self.players_due
-            s_due=not scheduled or now>=self.status_due or self.status is None
+            faction_due=bool(self.game_rules and self.failures<3 and self.game_rules.ready('factions') and now>=self.factions_due)
+            if faction_due:self.factions_due=self.next_due(self.factions_due,5.,now)
+            p_due=not scheduled or now>=self.players_due or faction_due
+            s_due=not scheduled or now>=self.status_due or self.status is None or faction_due
             if not p_due and not s_due:return False
             if p_due:self.players_due=self.next_due(self.players_due,p_period,now)
             if s_due:self.status_due=self.next_due(self.status_due,s_period,now)
@@ -69,6 +73,7 @@ class HistoryCollector:
             if p_due:
                 await self.runtime.capabilities.require(RouteName.PLAYERS)
                 players=normalize_players(await self.runtime.client.request(RouteName.PLAYERS))
+            if self.runtime.paused or self.revision!=self.runtime.target_revision:return False
             if status:
                 self.status=status;self.status_at=monotonic();self.runtime.read_service.publish(RouteName.STATUS,status)
             if players is not None:self.players=players;self.runtime.read_service.publish(RouteName.PLAYERS,players)

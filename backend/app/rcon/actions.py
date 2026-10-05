@@ -120,14 +120,12 @@ class ActionService:
 
         spec = write_route_for(action)
         path = spec.path.replace("{steamId}", steam_id or "")
-        client = self.client._get_client()
         started = monotonic()
         try:
-            async with self.client._semaphore:
-                async with client.stream(spec.method, path, json=body) as response:
-                    if action is WriteName.UNBAN and response.status_code == 404:
-                        raise PanelError("action_rejected")
-                    await self.client._decode_write(response)
+            async with self.client.exchange(spec.method, path, json=body) as response:
+                if action is WriteName.UNBAN and response.status_code == 404:
+                    raise PanelError("action_rejected")
+                await self.client._decode_write(response)
         except (httpx.TimeoutException, httpx.TransportError, httpx.DecodingError) as exc:
             _LOG.warning("Wardogs RCON action uncertain: action=%s duration_ms=%d",
                          action.value, round((monotonic() - started) * 1000))

@@ -297,37 +297,36 @@ async def send_config(
         spec = write_route_for(WriteName.CONFIG_APPLY)
     else:
         spec = write_route_for(WriteName.CONFIG_VALIDATE)
-    http_client = client._get_client()
+    client._get_client()
     headers = {"Content-Type": "text/plain; charset=utf-8"}
     if revision is not None and apply:
         headers["If-Match"] = f'"{revision}"'
     path = spec.path + ("?fullApply=true" if apply and full_apply else "")
     try:
-        async with client._semaphore:
-            async with http_client.stream(
-                spec.method, path, content=text.encode("utf-8"), headers=headers
-            ) as response:
-                if response.status_code in (401, 403):
-                    raise PanelError("rcon_auth_failed")
-                if response.status_code == 404:
-                    raise PanelError("action_unsupported")
-                if response.status_code == 429:
-                    raise PanelError("rcon_rate_limited")
-                if response.status_code == 412:
-                    raise PanelError("config_conflict")
-                if response.status_code == 422:
-                    raise PanelError("invalid_config")
-                if response.status_code >= 500:
-                    raise PanelError("action_uncertain" if apply else "rcon_unavailable")
-                if not 200 <= response.status_code < 300:
-                    raise PanelError("action_rejected")
-                assert client.target is not None
-                limit = client.target.max_response_bytes
-                body = bytearray()
-                async for chunk in response.aiter_bytes(chunk_size=65_536):
-                    if len(body) + len(chunk) > limit:
-                        raise PanelError("action_uncertain" if apply else "invalid_upstream")
-                    body.extend(chunk)
+        async with client.exchange(
+            spec.method, path, content=text.encode("utf-8"), headers=headers
+        ) as response:
+            if response.status_code in (401, 403):
+                raise PanelError("rcon_auth_failed")
+            if response.status_code == 404:
+                raise PanelError("action_unsupported")
+            if response.status_code == 429:
+                raise PanelError("rcon_rate_limited")
+            if response.status_code == 412:
+                raise PanelError("config_conflict")
+            if response.status_code == 422:
+                raise PanelError("invalid_config")
+            if response.status_code >= 500:
+                raise PanelError("action_uncertain" if apply else "rcon_unavailable")
+            if not 200 <= response.status_code < 300:
+                raise PanelError("action_rejected")
+            assert client.target is not None
+            limit = client.target.max_response_bytes
+            body = bytearray()
+            async for chunk in response.aiter_bytes(chunk_size=65_536):
+                if len(body) + len(chunk) > limit:
+                    raise PanelError("action_uncertain" if apply else "invalid_upstream")
+                body.extend(chunk)
     except (httpx.TimeoutException, httpx.TransportError, httpx.DecodingError) as exc:
         raise PanelError("action_uncertain" if apply else "rcon_unavailable") from exc
     try:

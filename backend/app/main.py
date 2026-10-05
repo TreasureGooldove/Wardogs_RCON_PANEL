@@ -22,6 +22,7 @@ from app.api.actions import router as actions_router
 from app.api.community import router as community_router
 from app.api.feed import router as feed_router
 from app.api.game_rules import router as game_rules_router
+from app.api.connection import router as connection_router
 from app.game_rules.store import GameRulesStore
 from app.game_rules.engine import GameRulesEngine
 from app.api.capabilities import router as capabilities_router
@@ -196,7 +197,7 @@ def create_app(
         request.state.request_id = str(uuid4())
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
-        if request.url.path.startswith(("/api/bot/", "/api/community/", "/api/steam/", "/api/ingest/", "/api/game-rules")) or request.url.path == "/api/server/bot-api-status":
+        if request.url.path.startswith(("/api/bot/", "/api/community/", "/api/steam/", "/api/ingest/", "/api/game-rules", "/api/server/connection")) or request.url.path == "/api/server/bot-api-status":
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -213,7 +214,7 @@ def create_app(
         steam_router,
         updates_router,
         bot_router,
-        community_router, feed_router, game_rules_router,
+        community_router, feed_router, game_rules_router, connection_router,
     ):
         app.include_router(router)
 

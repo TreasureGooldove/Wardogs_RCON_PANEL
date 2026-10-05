@@ -1050,5 +1050,17 @@
   "个人信息查询": "Personal information queries",
   "个人信息查询、玩家查找、封禁": "Personal queries, player search, bans",
   "从面板服务器探测入口鉴权，不执行封禁；结果不代表所有外部网络都能访问。": "Authentication is checked from the panel server without banning anyone. This does not verify reachability from every external network.",
-  "HTTP 入口明文传输 API Key 和查询数据，请留意数据安全。": "The HTTP gateway transmits API keys and query data without encryption. Take care to protect your data."
+  "HTTP 入口明文传输 API Key 和查询数据，请留意数据安全。": "The HTTP gateway transmits API keys and query data without encryption. Take care to protect your data.",
+  "停止连接": "Stop RCON",
+  "紧急停止连接": "Emergency RCON stop",
+  "恢复连接": "Resume RCON",
+  "RCON 已停止": "RCON stopped",
+  "连接状态读取失败": "Failed to read connection state",
+  "连接已恢复": "Connection resumed",
+  "连接已紧急停止": "Connection stopped by emergency control",
+  "停止状态会保留，重启面板不会自动恢复。": "The stopped state is saved; restarting the panel will not resume RCON.",
+  "RCON 连接已被管理员紧急停止，请由主账号确认后恢复": "RCON was stopped by an administrator. The owner must confirm resuming it.",
+  "恢复后重新连接服务器；阵营、物品和反作弊自动规则需要重新确认启用。请输入管理员密码。": "Resuming reconnects to the server. Faction, item and anti-cheat automation must be confirmed again. Enter the administrator password.",
+  "停止后将暂停 RCON 采集、自动规则和机器人管理操作；不会关闭游戏服务器。已发出的请求可能已经执行，无法撤销。请输入管理员密码。": "Stops RCON collection, automation and bot management operations without shutting down the game server. Requests already sent may have executed and cannot be undone. Enter the administrator password.",
+  "每 5 秒检查一次。目标阵营人数相同时随机选择；人数上限为 0 表示不限。每次只转移一人，并遵守等待与操作间隔。": "Checks every 5 seconds. Chooses randomly among equally populated target factions; a limit of 0 means unlimited. Moves one player per action and respects grace and cooldown settings."
 }

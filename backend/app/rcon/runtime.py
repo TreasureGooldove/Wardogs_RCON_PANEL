@@ -58,6 +58,9 @@ class RconRuntime:
         self._transport = transport
         self._cipher = _fernet(settings.config_key)
         self._record = database.get_server_settings()
+        self._connection_state = database.connection_control()
+        self.paused = self._connection_state['paused']
+        self._stop_generation = 0
         target = self._target_from_record(self._record) if self._record else settings.rcon_target
         self.client, self.capabilities, self.read_service = self._services(target)
         self.target_revision = secrets.token_urlsafe(24)
@@ -66,6 +69,7 @@ class RconRuntime:
         self, target: RconTarget | None
     ) -> tuple[RconClient, CapabilityService, ReadService]:
         client = RconClient(target, transport=self._transport)
+        client.connection_guard = self.ensure_running
         capabilities = CapabilityService(client, ttl_seconds=3600)
         reads = ReadService(client, capabilities)
         reads.interest = self.touch_interest
@@ -75,6 +79,46 @@ class RconRuntime:
 
     def touch_interest(self):
         self.watch_until = monotonic()+15
+
+    def ensure_running(self):
+        if self.paused:
+            raise PanelError('rcon_stopped')
+
+    def connection_state(self):
+        return {**self._connection_state, 'paused': self.paused,
+                'configured': self.client.target is not None,
+                'targetRevision': self.target_revision}
+
+    async def stop_connection(self):
+        # Never wait for the RCON lock: an automation may hold it during I/O.
+        self.paused = True
+        self._stop_generation += 1
+        self.watch_until = 0.
+        self.target_revision = secrets.token_urlsafe(24)
+        self._connection_state = self.database.set_connection_paused(True)
+        try:
+            await asyncio.wait_for(self.client.close(), timeout=1.)
+        except Exception:
+            _LOG.warning('RCON stop latch is active; connection cleanup incomplete')
+        return self.connection_state()
+
+    async def resume_connection(self):
+        generation = self._stop_generation
+        async with self.lock:
+            if generation != self._stop_generation:
+                raise PanelError('stale_server_target')
+            if not self.paused:
+                return self.connection_state()
+            old_client = self.client
+            await old_client.close()
+            if generation != self._stop_generation:
+                raise PanelError('stale_server_target')
+            services = self._services(old_client.target)
+            self._connection_state = self.database.set_connection_paused(False)
+            self.client, self.capabilities, self.read_service = services
+            self.target_revision = secrets.token_urlsafe(24)
+            self.paused = False
+            return self.connection_state()
 
     def _target_from_record(self, record: ServerSettingsRecord) -> RconTarget | None:
         if self._cipher is None:
@@ -198,7 +242,7 @@ class RconRuntime:
 
     @property
     def target(self) -> RconTarget | None:
-        return self.client.target
+        return None if self.paused else self.client.target
 
     async def request(self, route: RouteName) -> dict[str, Any] | list[Any]:
         async with self.lock:
@@ -217,10 +261,12 @@ class RuntimeReadService:
 
     async def status(self) -> dict[str, Any]:
         async with self.runtime.lock:
+            self.runtime.ensure_running()
             return await self.runtime.read_service.status()
 
     async def players(self) -> dict[str, Any]:
         async with self.runtime.lock:
+            self.runtime.ensure_running()
             snapshot = await self.runtime.read_service.players()
             snapshot["targetRevision"] = self.runtime.target_revision
             return snapshot
@@ -231,6 +277,7 @@ class RuntimeReadService:
 
     async def catalog(self, kind: str) -> dict[str, Any]:
         async with self.runtime.lock:
+            self.runtime.ensure_running()
             return await self.runtime.read_service.catalog(kind)
 
 
@@ -240,4 +287,5 @@ class RuntimeCapabilityService:
 
     async def get(self) -> dict[str, Any]:
         async with self.runtime.lock:
+            self.runtime.ensure_running()
             return await self.runtime.capabilities.get()
