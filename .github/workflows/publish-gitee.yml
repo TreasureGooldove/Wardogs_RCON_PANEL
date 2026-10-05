@@ -41,6 +41,19 @@ jobs:
           chmod 700 "$RUNNER_TEMP/gitee-askpass"
           export GIT_ASKPASS="$RUNNER_TEMP/gitee-askpass" GIT_TERMINAL_PROMPT=0
           git fetch origin main
-          git push https://gitee.com/gooldove/Wardogs_RCON_PANEL.git origin/main:refs/heads/main "refs/tags/$RELEASE_TAG"
+          mirror=https://gitee.com/gooldove/Wardogs_RCON_PANEL.git
+          remote_tag=$(git ls-remote "$mirror" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}")
+          if [ -n "$remote_tag" ]; then
+            remote_commit=$(printf '%s\n' "$remote_tag" | awk '/\^\{\}$/ { peeled=$1 } { direct=$1 } END { print peeled ? peeled : direct }')
+            local_commit=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+            if [ "$remote_commit" != "$local_commit" ]; then
+              echo "Gitee tag points to a different commit; refusing to overwrite it."
+              exit 1
+            fi
+            echo "Gitee tag already matches the release commit."
+          else
+            git push "$mirror" "refs/tags/$RELEASE_TAG"
+          fi
+          git push "$mirror" origin/main:refs/heads/main
           python deploy/publish-gitee.py "$RELEASE_TAG" "artifacts/Wardogs_RCON_PANEL-$RELEASE_TAG.zip" artifacts/SHA256SUMS.txt artifacts/notes.md
           rm "$RUNNER_TEMP/gitee-askpass"
