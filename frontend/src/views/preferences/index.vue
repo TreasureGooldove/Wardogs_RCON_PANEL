@@ -2,6 +2,7 @@
 import LanguageSelector from "@/components/LanguageSelector.vue";
 import { onMounted, ref } from "vue";
 import { useDataThemeChange } from "@/layout/hooks/useDataThemeChange";
+import { commandSkin } from "@/composables/usePanelSkin";
 
 defineOptions({ name: "PanelPreferences" });
 
@@ -56,12 +57,22 @@ function setSteamProfiles(value: boolean) {
     </el-card>
     <el-card shadow="never">
       <template #header>{{ $t("外观") }}</template>
+      <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="font-medium">{{ $t("指挥台风格") }}</div>
+          <p class="text-sm text-gray-500">
+            {{ $t("深色金色界面，关闭可恢复经典外观") }}
+          </p>
+        </div>
+        <el-switch v-model="commandSkin" :aria-label="$t('指挥台风格')" />
+      </div>
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div class="font-medium">{{ $t("主题") }}</div>
           <p class="text-sm text-gray-500">{{ $t("切换浅色与深色界面") }}</p>
         </div>
         <el-switch
+          :disabled="commandSkin"
           :model-value="theme.dataTheme.value"
           :active-text="$t('深色')"
           :inactive-text="$t('浅色')"

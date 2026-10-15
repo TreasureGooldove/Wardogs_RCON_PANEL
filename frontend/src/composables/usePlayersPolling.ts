@@ -1,10 +1,18 @@
-import { onActivated, onDeactivated, onMounted, onUnmounted, ref } from "vue";
+import {
+  onActivated,
+  onDeactivated,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  type Ref
+} from "vue";
 import { getApiErrorMessage } from "@/api/errors";
 import { getPlayers, type PlayersResponse } from "@/api/players";
 
 const PLAYER_POLL_INTERVAL_MS = 1_000;
 
-export function usePlayersPolling() {
+export function usePlayersPolling(options: { paused?: Ref<boolean> } = {}) {
   const snapshot = ref<PlayersResponse | null>(null);
   const loading = ref(false);
   const error = ref("");
@@ -18,13 +26,21 @@ export function usePlayersPolling() {
   }
 
   function startTimer() {
-    if (!timer && document.visibilityState === "visible") {
+    if (
+      !timer &&
+      document.visibilityState === "visible" &&
+      !options.paused?.value
+    ) {
       timer = setInterval(() => void refresh(), PLAYER_POLL_INTERVAL_MS);
     }
   }
 
-  function refresh(): Promise<void> {
-    if (!active || document.visibilityState !== "visible") {
+  function refresh(manual: unknown = false): Promise<void> {
+    if (
+      !active ||
+      document.visibilityState !== "visible" ||
+      (options.paused?.value && manual !== true)
+    ) {
       return Promise.resolve();
     }
     if (pending) return pending;
@@ -92,6 +108,15 @@ export function usePlayersPolling() {
   onActivated(start);
   onDeactivated(stop);
   onUnmounted(stop);
+
+  if (options.paused)
+    watch(options.paused, paused => {
+      if (paused) stopTimer();
+      else if (active) {
+        void refresh();
+        startTimer();
+      }
+    });
 
   return { snapshot, loading, error, refresh, refreshAfterMutation };
 }

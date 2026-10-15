@@ -16,7 +16,8 @@ A self-hosted management panel for a Wardogs dedicated server. The frontend uses
 
 ## ✨ Features
 
-- **Server and players:** View status, map, scores, and online players. Players are grouped by Lonestar, Valkyra, and Manticore; visible pages refresh about every five seconds.
+- **Command center appearance:** Charcoal and muted gold styling across login, navigation, tables, forms and dialogs; the overview includes map illustrations and faction emblems. Supports mobile layouts and switching to the base theme in Interface Settings.
+- **Server and players:** View status, map, scores, and online players. Players are grouped by Lonestar, Valkyra, and Manticore; the shared player snapshot refreshes about every second while the page is visible.
 - **Faction and item restrictions (experimental):** Set faction capacities, population differences, and automatic transfers. Matching new kill causes can trigger forced kills; equipment requires trusted `itemUsed` extension events. Default off, with owner-password confirmation. If you encounter false positives, abnormal data, or execution problems, disable the affected rules promptly and [report the issue](https://github.com/TreasureGooldove/Wardogs_RCON_PANEL/issues). See the [scope and integration guide](docs/GAME_RULES.en.md).
 - **Administration:** Kick, permanently ban and unban, kill a character, send private messages and warnings, change factions, broadcast, change maps or lighting, and end or restart a match. Available actions depend on the capabilities advertised by the server. Dangerous actions require confirmation.
 - **Lists and reserved slots:** Read the ban and reserved-slot lists. Reservation reasons and expiry dates are stored only in the panel. The panel removes a reservation when it expires. An uncertain write stops automatic retries and requires manual review.

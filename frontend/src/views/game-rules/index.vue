@@ -20,6 +20,7 @@ import {
 import { getApiErrorMessage } from "@/api/errors";
 import { useUserStoreHook } from "@/store/modules/user";
 import { FACTIONS } from "@/utils/factions";
+import FactionEmblem from "@/components/FactionEmblem.vue";
 import { formatDate, locale, t } from "@/i18n";
 
 defineOptions({ name: "GameRules" });
@@ -248,7 +249,16 @@ onUnmounted(() => {
               shadow="never"
               :style="{ borderTop: `3px solid ${faction.color}` }"
             >
-              <h3 :style="{ color: faction.color }">{{ faction.name }}</h3>
+              <h3
+                class="flex items-center gap-2"
+                :style="{ color: faction.color }"
+              >
+                <FactionEmblem
+                  :faction="faction.code"
+                  class="h-9 w-9 shrink-0"
+                />
+                {{ faction.name }}
+              </h3>
               <p>
                 {{ t("在线人数") }}：{{
                   data.observation.observedAt

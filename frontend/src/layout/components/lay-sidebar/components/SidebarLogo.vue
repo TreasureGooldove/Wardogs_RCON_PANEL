@@ -20,7 +20,9 @@ const { title } = useNav();
         :to="getTopMenu()?.path ?? '/'"
       >
         <span class="brand-mark" aria-hidden="true">W</span>
-        <span class="sidebar-title">{{ title }}</span>
+        <span class="sidebar-title"
+          ><b>WARDOGS</b><small>{{ $t("服务器管理工作台") }}</small></span
+        >
       </router-link>
       <router-link
         v-else
@@ -30,7 +32,9 @@ const { title } = useNav();
         :to="getTopMenu()?.path ?? '/'"
       >
         <span class="brand-mark" aria-hidden="true">W</span>
-        <span class="sidebar-title">{{ title }}</span>
+        <span class="sidebar-title"
+          ><b>WARDOGS</b><small>{{ $t("服务器管理工作台") }}</small></span
+        >
       </router-link>
     </transition>
   </div>
@@ -75,6 +79,19 @@ const { title } = useNav();
       line-height: 32px;
       color: var(--pure-theme-sub-menu-active-text);
       white-space: nowrap;
+      b {
+        display: block;
+        font-size: 15px;
+        line-height: 18px;
+        letter-spacing: 2px;
+      }
+      small {
+        display: block;
+        font-size: 10px;
+        font-weight: 400;
+        line-height: 16px;
+        letter-spacing: 0.4px;
+      }
     }
   }
 }

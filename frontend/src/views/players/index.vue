@@ -26,6 +26,7 @@ import {
   type WarningOutcome
 } from "@/api/warnings";
 import FactionCounts from "@/components/FactionCounts.vue";
+import FactionEmblem from "@/components/FactionEmblem.vue";
 import { usePlayersPolling } from "@/composables/usePlayersPolling";
 import { FACTIONS, normalizeFaction } from "@/utils/factions";
 import { useUserStoreHook } from "@/store/modules/user";
@@ -923,7 +924,14 @@ onUnmounted(stop);
         >
           <div class="mb-3 flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
+              <FactionEmblem
+                v-if="normalizeFaction(group.key)"
+                :faction="normalizeFaction(group.key)!"
+                class="h-8 w-8 shrink-0"
+                :style="{ color: group.color }"
+              />
               <span
+                v-else
                 class="h-2.5 w-2.5 rounded-full"
                 :style="{ backgroundColor: group.color }"
               />

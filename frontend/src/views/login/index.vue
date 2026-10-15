@@ -92,9 +92,9 @@ useEventListener(document, "keydown", ({ code }) => {
 
 <template>
   <div class="fixed right-3 top-3 z-10"><LanguageSelector /></div>
-  <div class="select-none">
+  <div class="login-page select-none">
     <img :src="bg" class="wave" />
-    <div class="flex-c absolute right-5 top-3">
+    <div class="login-theme-toggle flex-c absolute right-5 top-3">
       <!-- 主题 -->
       <el-switch
         v-model="dataTheme"
