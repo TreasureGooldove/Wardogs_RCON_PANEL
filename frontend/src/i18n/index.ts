@@ -3,6 +3,7 @@ import zh from "./zh-CN.json";
 import zhTW from "./zh-TW.json";
 import antiTW from "./anticheat-zh-TW.json";
 import gameRules from "./game-rules.json";
+import awards from "./awards.json";
 import en from "./en-US.json";
 import ja from "./ja-JP.json";
 import ko from "./ko-KR.json";
@@ -29,11 +30,11 @@ function savedLocale(): LocaleCode {
 }
 export const locale = ref<LocaleCode>(savedLocale());
 const messages: Record<LocaleCode, Messages> = {
-  "zh-CN": zh,
-  "zh-TW": { ...zhTW, ...antiTW, ...gameRules["zh-TW"] },
-  "en-US": { ...en, ...gameRules["en-US"] },
-  "ja-JP": { ...ja, ...gameRules["ja-JP"] },
-  "ko-KR": { ...ko, ...gameRules["ko-KR"] }
+  "zh-CN": { ...zh, ...awards["zh-CN"] },
+  "zh-TW": { ...zhTW, ...antiTW, ...gameRules["zh-TW"], ...awards["zh-TW"] },
+  "en-US": { ...en, ...gameRules["en-US"], ...awards["en-US"] },
+  "ja-JP": { ...ja, ...gameRules["ja-JP"], ...awards["ja-JP"] },
+  "ko-KR": { ...ko, ...gameRules["ko-KR"], ...awards["ko-KR"] }
 };
 export const languages = [
   { code: "zh-CN", label: "简体中文", aiTranslated: false },

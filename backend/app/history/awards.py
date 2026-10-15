@@ -9,6 +9,8 @@ from app.rcon.actions import ActionService
 from app.rcon.routes import WriteName, write_route_for
 
 DEFAULT_TITLES = {'kills': '击杀王', 'cash_gain': '许家印', 'deaths': '区王'}
+ANNOUNCEMENT_DELAY_SECONDS = 5 * 60
+ANNOUNCEMENT_WINDOW_SECONDS = 120
 
 
 class AwardsStore:
@@ -90,7 +92,7 @@ class AwardsStore:
             board=self.board_in(db,previous['id'],titles) if previous else []
             jobs=[dict(r) for r in db.execute('SELECT old_match,new_match,outcome,parts,created_at,error FROM award_jobs WHERE origin=? ORDER BY created_at DESC LIMIT 30',(origin,))]
         for row in jobs:row['parts']=json.loads(row['parts'])
-        return {'enabled':bool(config and config['enabled']),'titles':titles,'previousMatch':dict(previous) if previous else None,'board':board,'previewMessages':self.messages(board),'jobs':jobs,'scope':'panel_observations','cashMetric':'observed_positive_changes'}
+        return {'enabled':bool(config and config['enabled']),'titles':titles,'previousMatch':dict(previous) if previous else None,'board':board,'previewMessages':self.messages(board),'jobs':jobs,'scope':'panel_observations','cashMetric':'observed_positive_changes','broadcastDelaySeconds':ANNOUNCEMENT_DELAY_SECONDS}
 
     def save(self,origin,enabled,actor,titles=None):
         with self.db._connect() as db:
@@ -121,8 +123,11 @@ class AwardsEngine:
                 actor=self.store.db.get_admin_by_id(row['actor'])
                 age=(datetime.now(UTC)-datetime.fromisoformat(row['created_at'])).total_seconds()
                 fresh=(datetime.now(UTC)-datetime.fromisoformat(row['last_seen'])).total_seconds()<=15
-                if not row['enabled'] or row['actor']!=row['config_actor'] or not actor or actor.disabled or (actor.role!='owner' and 'broadcast' not in actor.permissions) or row['ended_seen'] or age>120 or not fresh:
+                if not row['enabled'] or row['actor']!=row['config_actor'] or not actor or actor.disabled or (actor.role!='owner' and 'broadcast' not in actor.permissions) or row['ended_seen'] or age>ANNOUNCEMENT_DELAY_SECONDS+ANNOUNCEMENT_WINDOW_SECONDS or not fresh:
                     db.execute("UPDATE award_jobs SET outcome='skipped',error='stale_or_disabled' WHERE new_match=?",(row['new_match'],));return
+                # The queue timestamp is the first observation of this new match.
+                # Leave it queued while collecting; never sleep with the RCON lock.
+                if age<ANNOUNCEMENT_DELAY_SECONDS:return
             try:
                 spec=write_route_for(WriteName.BROADCAST)
                 await self.runtime.capabilities.require_advertised(spec.method,spec.path)

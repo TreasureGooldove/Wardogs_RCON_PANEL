@@ -26,6 +26,55 @@ def record(app,at,map='A',players=None):
 def player(sid=A,name='Fictional',kills=1,deaths=1,cash=1000):
     return dict(steamId=sid,name=name,kills=kills,deaths=deaths,cash=cash)
 
+
+def awards_clock(panel, monkeypatch, at):
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return at if tz is not None else at.replace(tzinfo=None)
+    monkeypatch.setattr('app.history.awards.datetime', Clock)
+    with panel.state.database._connect() as db:
+        db.execute('UPDATE observed_matches SET last_seen=? WHERE ended_seen IS NULL', (at.isoformat(),))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('elapsed,expected', [(0, 'queued'), (299, 'queued'), (300, 'accepted'), (419, 'accepted'), (421, 'skipped')])
+async def test_awards_wait_five_minutes_with_bounded_delivery_window(panel, monkeypatch, elapsed, expected):
+    store=panel.state.awards_store;engine=panel.state.awards_engine;runtime=panel.state.rcon_runtime
+    start=datetime.now(UTC)
+    store.save(ORIGIN,True,panel.state.owner_id)
+    record(panel,start-timedelta(seconds=10),players=[player()])
+    engine.observe(ORIGIN,runtime.target_revision)
+    record(panel,start-timedelta(seconds=5),players=[player(kills=3,cash=1100)])
+    record(panel,start,map='B',players=[player(kills=0,deaths=0,cash=50)])
+    awards_clock(panel,monkeypatch,start+timedelta(seconds=elapsed))
+    send=AsyncMock();monkeypatch.setattr('app.history.awards.ActionService.send',send)
+    await engine.tick();await engine.tick()
+    assert store.view(ORIGIN)['jobs'][0]['outcome']==expected
+    assert send.await_count==(3 if expected=='accepted' else 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('invalid', ['ended', 'stale'])
+async def test_waiting_awards_cancel_if_match_ends_or_observations_expire(panel, monkeypatch, invalid):
+    store=panel.state.awards_store;engine=panel.state.awards_engine;runtime=panel.state.rcon_runtime
+    start=datetime.now(UTC)
+    store.save(ORIGIN,True,panel.state.owner_id)
+    record(panel,start-timedelta(seconds=10),players=[player()])
+    engine.observe(ORIGIN,runtime.target_revision)
+    record(panel,start-timedelta(seconds=5),players=[player(kills=3)])
+    mid=record(panel,start,map='B',players=[player()])
+    awards_clock(panel,monkeypatch,start+timedelta(seconds=300))
+    with panel.state.database._connect() as db:
+        if invalid=='ended':
+            db.execute('UPDATE observed_matches SET ended_seen=? WHERE id=?',(start.isoformat(),mid))
+        else:
+            db.execute('UPDATE observed_matches SET last_seen=? WHERE id=?',(start.isoformat(),mid))
+    send=AsyncMock();monkeypatch.setattr('app.history.awards.ActionService.send',send)
+    await engine.tick()
+    send.assert_not_awaited()
+    assert store.view(ORIGIN)['jobs'][0]['outcome']=='skipped'
+
 @pytest.mark.asyncio
 async def test_cash_positive_changes_ties_leavers_and_one_delivery(panel,monkeypatch):
     store=panel.state.awards_store;engine=panel.state.awards_engine;runtime=panel.state.rcon_runtime
@@ -43,6 +92,7 @@ async def test_cash_positive_changes_ties_leavers_and_one_delivery(panel,monkeyp
     assert '估算' in data['previewMessages'][1]
     assert len(data['jobs'])==1 and data['jobs'][0]['old_match']==first
     send=AsyncMock();monkeypatch.setattr('app.history.awards.ActionService.send',send)
+    awards_clock(panel,monkeypatch,datetime.now(UTC)+timedelta(seconds=300))
     await engine.tick();await engine.tick()
     assert send.await_count==3 and store.view(ORIGIN)['jobs'][0]['outcome']=='accepted'
     assert all(len(call.kwargs['message'])<=200 for call in send.await_args_list)
@@ -61,6 +111,7 @@ async def test_gaps_unknown_cash_startup_and_timeout_never_replay(panel,monkeypa
     record(panel,datetime.now(UTC)+timedelta(seconds=1),map='B',players=[player(kills=2)])
     record(panel,datetime.now(UTC)+timedelta(seconds=2),map='C',players=[player()])
     send=AsyncMock(side_effect=PanelError('action_uncertain'));monkeypatch.setattr('app.history.awards.ActionService.send',send)
+    awards_clock(panel,monkeypatch,datetime.now(UTC)+timedelta(seconds=302))
     await engine.tick();await engine.tick();store.initialize();await engine.tick()
     send.assert_awaited_once()
     assert any(j['outcome']=='uncertain' for j in store.view(ORIGIN)['jobs'])

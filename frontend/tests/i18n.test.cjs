@@ -24,6 +24,20 @@ const dictionaries = Object.fromEntries(
 );
 const tokens = text => (text.match(/\{[A-Za-z][A-Za-z0-9_]*\}/g) || []).sort();
 
+test("delayed awards messages cover all supported locales", () => {
+  const awards = JSON.parse(
+    fs.readFileSync(path.join(root, "awards.json"), "utf8")
+  );
+  const keys = Object.keys(awards["zh-CN"]).sort();
+  for (const code of core.LOCALE_CODES) {
+    assert.deepEqual(Object.keys(awards[code]).sort(), keys, code);
+    for (const key of keys) {
+      assert.ok(awards[code][key].trim());
+      assert.deepEqual(tokens(awards[code][key]), tokens(key));
+    }
+  }
+});
+
 test("all locales cover the same messages and retain dynamic placeholders", () => {
   const keys = Object.keys(dictionaries["zh-CN"]).sort();
   for (const [code, messages] of Object.entries(dictionaries)) {
