@@ -87,6 +87,24 @@
 
 面板接口：`GET /api/game-rules` 读取设置、来源状态、物品目录及最近回执；主账号使用 `PUT /api/game-rules/factions`、`PUT /api/game-rules/items` 保存。写入请求包含相应设置及 `targetRevision`；启用还需 `acknowledgeRisk=true`、`password`。这些接口使用面板 Cookie，不通过机器人 HTTP 网关开放。参数错误为 `400 invalid_selection`，目标版本过期为 `409 stale_server_target`，子用户写入为 `403 permission_denied`。
 
+## 随机打乱双方（试验性）
+
+在“50V50 双阵营模式”卡片点击“预览随机打乱双方”。先保存恰好两个开放阵营的规则（可不启用自动控制），上限 `0` 的阵营不会成为目标。面板读取实机名单，随机重分全部在线玩家，在各阵营容量内尽量均分；总容量不足、名单不完整或在线人数不在 2–200 人时拒绝执行。它不按击杀、好友或小队分组，也不改变保存的上限。
+
+预览列出姓名、SteamID、原阵营和目标阵营，60 秒内有效，不发送换阵营命令。主账号再输入密码并确认后才执行。逐人调用官方换阵营接口，不附加击杀、踢出、公告或配置文件写入；期间人数可能短暂超出最终计划，服务器是否接受以回执和复查为准，不保证原生选边限制允许满员互换。
+
+每次操作之间间隔至少 0.5 秒，并释放 RCON 锁；自动人数平衡在打乱执行期间暂停。每次转移前重新读取名单和状态，核对目标版本、规则版本、在线名单与阵营、地图和可用的比赛时间。其他玩家加入、离开、主动换边，或规则变化、返回失败、超时均停止后续操作。缺少比赛时间时，同地图重新开局无法仅靠状态接口可靠识别。顶部“停止连接”会阻止后续请求，已经发送的操作不能撤销。
+
+页面可查看逐人回执，刷新页面后恢复最近任务。完成后核对实机名单；无法核对时显示不确定。操作记录写入面板审计，同一个预览 ID 重复确认不会重发，重启后未完成任务标记为中断，不自动继续或回滚。
+
+接口（仅主账号 Cookie，不开放至机器人网关）：
+
+- `POST /api/game-rules/factions/shuffle/preview`：`{"targetRevision":"当前面板目标版本"}`。
+- `POST /api/game-rules/factions/shuffle/{id}/execute`：同一 `targetRevision`，以及 `acknowledgeRisk=true`、`password`。
+- `GET /api/game-rules/factions/shuffle/{id}`：查看 `phase`、`plan`、`expires`、`error`；阶段为 `preview/running/completed/stopped/uncertain`。
+
+常见错误：`400 shuffle_two_factions`、`409 shuffle_capacity`、`409 shuffle_stale`、`409 shuffle_busy`。原有权限、密码、同源、紧急停止和能力检查同样适用。请在可控环境验证；不要在有人游玩的服务器上执行测试。
+
 ## 目录来源
 
 名称与分类参考 [WARDOGS 小助手武器数据库](https://wardogs.t0ki.cn/weapons.html)，该站标明原始来源为 [wardogs.zone](https://wardogs.zone/database)。本次目录快照包含 38 件武器、137 件装备，仅保留 ID、名称与分类，不包含网站图片、代码、售价或伤害数据。来源数据标记日期为 2026-09-04，本次获取日期为 2026-10-05；网页与数据文件日期可能不同，内容也可能更新。目录 ID 仅用于选择和扩展事件契约，不保证与原生 RCON 字段一致。

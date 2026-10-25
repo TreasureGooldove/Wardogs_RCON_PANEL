@@ -130,6 +130,10 @@ class GameRulesEngine:
     async def factions_unlocked(self, players, status):
         """Collector calls with its lock held and a newly successful player sample."""
         runtime = self.runtime
+        if runtime.target and getattr(self, 'shuffle_store', None) and self.shuffle_store.active(runtime.target.origin):
+            self.last_factions['state'] = 'shuffle_running'
+            self._violation = None
+            return
         config = self.ready('factions')
         clock = monotonic()
         if self._generation != (config or {}).get('generation'):

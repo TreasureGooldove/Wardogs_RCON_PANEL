@@ -5,6 +5,7 @@ import antiTW from "./anticheat-zh-TW.json";
 import gameRules from "./game-rules.json";
 import awards from "./awards.json";
 import factionControl from "./faction-control.json";
+import factionShuffle from "./faction-shuffle.json";
 import en from "./en-US.json";
 import ja from "./ja-JP.json";
 import ko from "./ko-KR.json";
@@ -31,31 +32,40 @@ function savedLocale(): LocaleCode {
 }
 export const locale = ref<LocaleCode>(savedLocale());
 const messages: Record<LocaleCode, Messages> = {
-  "zh-CN": { ...zh, ...awards["zh-CN"], ...factionControl["zh-CN"] },
+  "zh-CN": {
+    ...zh,
+    ...awards["zh-CN"],
+    ...factionControl["zh-CN"],
+    ...factionShuffle["zh-CN"]
+  },
   "zh-TW": {
     ...zhTW,
     ...antiTW,
     ...gameRules["zh-TW"],
     ...awards["zh-TW"],
-    ...factionControl["zh-TW"]
+    ...factionControl["zh-TW"],
+    ...factionShuffle["zh-TW"]
   },
   "en-US": {
     ...en,
     ...gameRules["en-US"],
     ...awards["en-US"],
-    ...factionControl["en-US"]
+    ...factionControl["en-US"],
+    ...factionShuffle["en-US"]
   },
   "ja-JP": {
     ...ja,
     ...gameRules["ja-JP"],
     ...awards["ja-JP"],
-    ...factionControl["ja-JP"]
+    ...factionControl["ja-JP"],
+    ...factionShuffle["ja-JP"]
   },
   "ko-KR": {
     ...ko,
     ...gameRules["ko-KR"],
     ...awards["ko-KR"],
-    ...factionControl["ko-KR"]
+    ...factionControl["ko-KR"],
+    ...factionShuffle["ko-KR"]
   }
 };
 export const languages = [

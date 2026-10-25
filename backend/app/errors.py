@@ -9,6 +9,10 @@ from fastapi.responses import JSONResponse
 
 
 _ERRORS: dict[str, tuple[int, str]] = {
+    "shuffle_two_factions": (400, "请先保存仅开放两个阵营的规则，并确认在线人数为 2–200 人"),
+    "shuffle_capacity": (409, "两个开放阵营的人数上限不足以容纳全部在线玩家"),
+    "shuffle_stale": (409, "打乱预览已过期，或名单、阵营、对局及规则已变化，请重新预览"),
+    "shuffle_busy": (409, "已有随机打乱任务正在执行"),
     "rcon_stopped": (503, "RCON 连接已被管理员紧急停止，请由主账号确认后恢复"),
     "feed_body_too_large": (413, "击杀推送超过大小限制"),
     "feed_invalid_batch": (400, "击杀事件格式无效"),

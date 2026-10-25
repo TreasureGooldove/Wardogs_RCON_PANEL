@@ -2,6 +2,10 @@ import { t } from "@/i18n";
 import { isAxiosError } from "axios";
 
 export type ApiErrorCode =
+  | "shuffle_two_factions"
+  | "shuffle_capacity"
+  | "shuffle_stale"
+  | "shuffle_busy"
   | "not_authenticated"
   | "permission_denied"
   | "invalid_credentials"
@@ -42,6 +46,11 @@ export interface ApiErrorBody {
 }
 
 const messages: Record<ApiErrorCode, string> = {
+  shuffle_two_factions:
+    "请先保存仅开放两个阵营的规则，并确认在线人数为 2–200 人",
+  shuffle_capacity: "两个开放阵营的人数上限不足以容纳全部在线玩家",
+  shuffle_stale: "打乱预览已过期，或名单、阵营、对局及规则已变化，请重新预览",
+  shuffle_busy: "已有随机打乱任务正在执行",
   not_authenticated: "登录已失效，请重新登录",
   permission_denied: "当前账号没有此操作权限",
   invalid_credentials: "账号或密码错误",

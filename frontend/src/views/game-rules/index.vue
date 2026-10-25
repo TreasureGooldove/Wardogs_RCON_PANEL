@@ -10,6 +10,10 @@ import {
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   getGameRules,
+  previewFactionShuffle,
+  executeFactionShuffle,
+  getFactionShuffle,
+  type ShuffleJob,
   saveFactionRules,
   saveItemRules,
   type GameRulesView,
@@ -29,6 +33,51 @@ defineOptions({ name: "GameRules" });
 const data = ref<GameRulesView>();
 const factionForm = ref<FactionSettings>();
 const excludedFaction = ref<FactionName>("Lonestar");
+const shuffle = ref<ShuffleJob>();
+const shuffleVisible = ref(false);
+const shuffleRevision = ref("");
+const shuffleCounts = computed(() =>
+  FACTIONS.map(faction => ({
+    name: faction.name,
+    count: shuffle.value?.plan.filter(p => p.to === faction.name).length || 0
+  }))
+);
+const shufflePhases: Record<string, string> = {
+  preview: "待确认",
+  running: "正在打乱",
+  completed: "已完成并核对名单",
+  stopped: "已停止",
+  uncertain: "部分结果不确定，请核查"
+};
+async function previewShuffle() {
+  await run(async () => {
+    if (!data.value) return;
+    shuffleRevision.value = data.value.targetRevision;
+    shuffle.value = await previewFactionShuffle(shuffleRevision.value);
+    shuffleVisible.value = true;
+  });
+}
+async function executeShuffle() {
+  await run(async () => {
+    if (!shuffle.value) return;
+    const answer = await ElMessageBox.prompt(
+      t(
+        "将按预览逐人转移，可能影响战斗，期间人数可能短暂偏差。不会击杀或踢出玩家，也不能自动撤销。请输入主账号密码确认。"
+      ),
+      t("确认随机打乱"),
+      {
+        inputType: "password",
+        confirmButtonText: t("确认执行"),
+        cancelButtonText: t("取消")
+      }
+    );
+    shuffle.value = await executeFactionShuffle(shuffle.value.id, {
+      targetRevision: shuffleRevision.value,
+      acknowledgeRisk: true,
+      password: answer.value
+    });
+  });
+}
 const lastOpenLimits: Partial<Record<FactionName, number>> = {};
 function setFactionOpen(name: FactionName, open: boolean) {
   if (!factionForm.value) return;
@@ -65,6 +114,7 @@ const catalogGroups = computed(() => [
 ]);
 const states: Record<string, string> = {
   no_samples: "尚无人数采样",
+  shuffle_running: "随机打乱执行中，自动平衡暂时暂停",
   disabled: "自动控制已关闭",
   within_limits: "人数符合限制",
   faction_closed: "关闭的阵营存在玩家，等待转移",
@@ -94,7 +144,10 @@ function outcome(value: string) {
         accepted: "已接受",
         rejected: "已拒绝",
         uncertain: "不确定",
-        processing: "处理中"
+        processing: "处理中",
+        queued: "等待执行",
+        unchanged: "保持阵营",
+        skipped: "已跳过"
       } as Record<string, string>
     )[value] || value
   );
@@ -114,6 +167,12 @@ async function run(work: () => Promise<void>) {
 async function load(reset = false) {
   const result = await getGameRules();
   data.value = result;
+  if (!shuffle.value && result.latestShuffle) {
+    shuffle.value = result.latestShuffle;
+    shuffleRevision.value = result.targetRevision;
+  }
+  if (shuffle.value && shuffle.value.phase === "running")
+    shuffle.value = await getFactionShuffle(shuffle.value.id);
   // Refresh observations without discarding unsaved form edits.
   if (reset || !factionForm.value)
     factionForm.value = structuredClone(result.factions.settings);
@@ -292,6 +351,28 @@ onUnmounted(() => {
                 )
               }}
             </p>
+            <el-button
+              v-if="owner"
+              class="mt-3"
+              type="warning"
+              :disabled="busy || shuffle?.phase === 'running'"
+              @click="previewShuffle"
+              >{{ t("预览随机打乱双方") }}</el-button
+            >
+            <p class="mt-2 text-sm text-gray-500">
+              {{
+                t(
+                  "使用已保存的两个开放阵营，随机重分在线玩家并尽量均分。需先保存规则；预览不执行转移。"
+                )
+              }}
+            </p>
+            <el-button
+              v-if="shuffle"
+              link
+              class="mt-2"
+              @click="shuffleVisible = true"
+              >{{ t(shufflePhases[shuffle.phase]) }}</el-button
+            >
           </el-card>
           <el-alert
             v-if="data.factions.blocked || data.factions.requiresRearm"
@@ -571,6 +652,79 @@ onUnmounted(() => {
         </el-table>
       </el-card>
     </template>
+    <el-dialog
+      v-model="shuffleVisible"
+      :title="t('随机打乱双方')"
+      width="min(900px, 95vw)"
+    >
+      <template v-if="shuffle">
+        <el-alert
+          v-if="error"
+          type="error"
+          :closable="false"
+          :title="error"
+          class="my-3"
+        />
+        <el-alert
+          type="warning"
+          :closable="false"
+          :title="
+            t(
+              '预览 60 秒内有效。执行期间自动平衡暂停；名单、阵营、对局或规则变化，以及失败或超时，均会停止后续操作。顶部停止连接可中止后续转移。'
+            )
+          "
+        />
+        <p class="my-3">
+          {{ t(shufflePhases[shuffle.phase]) }} · {{ t("预览到期") }}：{{
+            formatDate(shuffle.expires)
+          }}
+        </p>
+        <p class="my-3">
+          {{
+            shuffleCounts.map(row => `${row.name}: ${row.count}`).join(" / ")
+          }}
+        </p>
+        <el-alert
+          v-if="shuffle.error"
+          type="error"
+          :closable="false"
+          :title="shuffle.error"
+          class="my-3"
+        />
+        <el-table :data="shuffle.plan" max-height="400">
+          <el-table-column prop="name" :label="t('玩家')" min-width="150" />
+          <el-table-column prop="steamId" label="SteamID64" min-width="180" />
+          <el-table-column prop="from" :label="t('原阵营')" min-width="110" />
+          <el-table-column prop="to" :label="t('目标阵营')" min-width="110" />
+          <el-table-column :label="t('结果')" min-width="110"
+            ><template #default="scope">{{
+              outcome(scope.row.outcome)
+            }}</template></el-table-column
+          >
+          <el-table-column prop="error" :label="t('错误码')" min-width="140" />
+        </el-table>
+      </template>
+      <template #footer>
+        <el-button @click="shuffleVisible = false">{{ t("关闭") }}</el-button>
+        <el-button
+          v-if="shuffle?.phase === 'preview'"
+          type="danger"
+          :loading="busy"
+          @click="executeShuffle"
+          >{{ t("输入密码并执行") }}</el-button
+        >
+        <el-button
+          v-else-if="shuffle"
+          :disabled="busy"
+          @click="
+            run(async () => {
+              if (shuffle) shuffle = await getFactionShuffle(shuffle.id);
+            })
+          "
+          >{{ t("刷新") }}</el-button
+        >
+      </template>
+    </el-dialog>
   </main>
 </template>
 

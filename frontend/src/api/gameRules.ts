@@ -49,6 +49,7 @@ export interface CatalogItem {
   category: string;
 }
 export interface GameRulesView {
+  latestShuffle: ShuffleJob | null;
   targetRevision: string;
   factions: RuleView<FactionSettings>;
   items: RuleView<ItemSettings>;
@@ -86,3 +87,30 @@ export const saveFactionRules = (data: FactionSettings & Confirmation) =>
   });
 export const saveItemRules = (data: ItemSettings & Confirmation) =>
   http.request("put", "/api/game-rules/items", { data });
+
+export interface ShuffleJob {
+  id: string;
+  phase: "preview" | "running" | "completed" | "stopped" | "uncertain";
+  expires: string;
+  error: string | null;
+  plan: {
+    steamId: string;
+    name: string;
+    from: FactionName;
+    to: FactionName;
+    outcome: string;
+    error: string | null;
+  }[];
+}
+export const previewFactionShuffle = (targetRevision: string) =>
+  http.request<ShuffleJob>("post", "/api/game-rules/factions/shuffle/preview", {
+    data: { targetRevision }
+  });
+export const executeFactionShuffle = (id: string, data: Confirmation) =>
+  http.request<ShuffleJob>(
+    "post",
+    `/api/game-rules/factions/shuffle/${id}/execute`,
+    { data }
+  );
+export const getFactionShuffle = (id: string) =>
+  http.request<ShuffleJob>("get", `/api/game-rules/factions/shuffle/${id}`);

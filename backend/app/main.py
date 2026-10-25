@@ -25,6 +25,7 @@ from app.api.game_rules import router as game_rules_router
 from app.api.connection import router as connection_router
 from app.game_rules.store import GameRulesStore
 from app.game_rules.engine import GameRulesEngine
+from app.game_rules.shuffle import ShuffleStore
 from app.api.capabilities import router as capabilities_router
 from app.api.catalog import router as catalog_router
 from app.api.config_doc import router as config_doc_router
@@ -103,6 +104,8 @@ def create_app(
     rcon_runtime = RconRuntime(settings, database, transport=rcon_transport)
     game_rules_store = GameRulesStore(database)
     game_rules_engine = GameRulesEngine(rcon_runtime, game_rules_store)
+    shuffle_store = ShuffleStore(database)
+    game_rules_engine.shuffle_store = shuffle_store
     steam_service = SteamProfileService.from_environment()
     rules_engine = RulesEngine(rcon_runtime, rules_store)
     warmup_engine = WarmupEngine(rcon_runtime, database, warmup_store)
@@ -176,6 +179,7 @@ def create_app(
     app.state.kill_store = kill_store
     app.state.game_rules_store = game_rules_store
     app.state.game_rules_engine = game_rules_engine
+    app.state.shuffle_store = shuffle_store
     app.state.anticheat_store = anticheat_store
     app.state.anticheat_engine = AntiEngine(rcon_runtime, anticheat_store)
     app.include_router(anticheat_router)

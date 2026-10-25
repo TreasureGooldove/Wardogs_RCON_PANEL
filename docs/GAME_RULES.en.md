@@ -87,6 +87,22 @@ Endpoints: `GET /api/server/connection` for authenticated users; `POST /api/serv
 
 Panel routes: `GET /api/game-rules` returns settings, source state, catalog, and recent receipts. Owner-only `PUT /api/game-rules/factions` and `PUT /api/game-rules/items` save the respective settings plus `targetRevision`; enabling also requires `acknowledgeRisk=true` and `password`. These are panel-cookie routes, not exposed by the bot HTTP gateway. Invalid parameters return `400 invalid_selection`, stale revisions `409 stale_server_target`, and subuser writes `403 permission_denied`.
 
+## One-shot team shuffle (experimental; AI translated)
+
+Save rules with exactly two open factions first, even if automatic control stays disabled. Click **Preview team shuffle** in the 50V50 card. The panel randomly redistributes all online players as evenly as the saved capacities allow; closed factions never receive players. Incomplete rosters, insufficient capacity and populations outside 2–200 are rejected. This is random redistribution, not skill-, party- or friend-based balancing.
+
+The preview lists names, SteamIDs, original and destination factions and expires after 60 seconds. It sends no transfer commands. Owner password confirmation starts a durable background job, with at least 0.5 seconds between writes and automatic balance paused. Transfers are not atomic, so intermediate counts may exceed final caps; native game restrictions may reject full-team swaps. No kill, kick, broadcast or configuration-file writes are added.
+
+Each transfer rechecks a fresh roster, team membership, server revision, saved rule generation, map and available match timer. Any change, failure or timeout stops remaining work. If the game omits match time, a same-map restart cannot reliably be detected from status alone. Top-bar Stop Connection prevents further requests; it cannot undo sent commands. Results are verified against the final roster, with uncertainty shown when verification fails. Reusing a preview ID never resends it. Interrupted jobs do not resume or roll back after panel restart. The latest job is restored in the UI, with per-player receipts and panel audit.
+
+Owner-cookie routes, excluded from the bot gateway:
+
+- `POST /api/game-rules/factions/shuffle/preview`: `targetRevision`.
+- `POST /api/game-rules/factions/shuffle/{id}/execute`: the same `targetRevision`, `acknowledgeRisk=true`, and `password`.
+- `GET /api/game-rules/factions/shuffle/{id}`: `phase`, `plan`, `expires`, `error`. Phases: `preview/running/completed/stopped/uncertain`.
+
+Errors: `400 shuffle_two_factions`, `409 shuffle_capacity`, `409 shuffle_stale`, `409 shuffle_busy`, plus existing password, permission, origin, stop-latch and capability errors. Validate in a controlled environment, not by transferring live players as a connectivity test.
+
 ## Catalog sources
 
 Names and categories reference the [WARDOGS community helper database](https://wardogs.t0ki.cn/weapons.html), which credits [wardogs.zone](https://wardogs.zone/database). The snapshot contains 38 weapons and 137 equipment items, retaining only identifiers, names, and categories, not website images, code, prices, or damage data. The data file identifies 2026-09-04 as its update date; retrieval was 2026-10-05. Page and data dates may differ, and upstream content may change. These IDs serve selection and the extension contract; they are not guaranteed to match native RCON fields.
