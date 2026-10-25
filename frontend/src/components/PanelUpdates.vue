@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { t, formatDate } from "@/i18n";
+import { t, formatDate, locale } from "@/i18n";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { http } from "@/utils/http";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { getApiErrorMessage } from "@/api/errors";
 import { useUserStoreHook } from "@/store/modules/user";
+import { updaterNotice, type UpdaterState } from "@/utils/updateStatus";
 
 interface ReleaseStatus {
   currentVersion: string;
@@ -19,12 +20,20 @@ interface ReleaseStatus {
   installable: boolean;
   fallback: boolean;
 }
-interface InstallState {
-  agentAvailable: boolean;
+interface InstallState extends UpdaterState {
   policy: { autoInstall: boolean; source: string };
   job: { state: string; version?: string; code?: string | null };
 }
 const installState = ref<InstallState | null>(null);
+const stateLoading = ref(false);
+const stateFailed = ref(false);
+const agentNotice = computed(() =>
+  updaterNotice(installState.value, stateFailed.value)
+);
+const updaterGuide = computed(
+  () =>
+    `https://${source.value === "gitee" ? "gitee.com/gooldove" : "github.com/TreasureGooldove"}/Wardogs_RCON_PANEL/blob/main/deploy/README${locale.value.startsWith("zh") ? "" : ".en"}.md#host-updater`
+);
 const source = ref("auto");
 const autoInstall = ref(false);
 const submitting = ref(false);
@@ -33,6 +42,7 @@ const state = ref<ReleaseStatus | null>(null);
 const visible = ref(false);
 const loading = ref(false);
 const failed = ref(false);
+let policyLoaded = false;
 let timer: ReturnType<typeof setInterval>;
 const message = computed(() => {
   if (failed.value) return t("检查失败，请稍后重试");
@@ -64,23 +74,30 @@ async function check(refresh = false) {
   }
 }
 async function pollState() {
-  if (!owner.value) return;
+  if (!owner.value || stateLoading.value) return;
+  stateLoading.value = true;
   try {
     installState.value = await http.request<InstallState>(
       "get",
       "/api/panel/updates/state"
     );
+    stateFailed.value = false;
+    if (!policyLoaded) {
+      source.value = installState.value.policy.source;
+      autoInstall.value = installState.value.policy.autoInstall;
+      policyLoaded = true;
+    }
   } catch {
-    /* Container restarts may temporarily disconnect polling. */
+    installState.value = null;
+    stateFailed.value = true;
+  } finally {
+    stateLoading.value = false;
   }
 }
 async function open() {
   visible.value = true;
+  policyLoaded = false;
   await pollState();
-  if (installState.value) {
-    source.value = installState.value.policy.source;
-    autoInstall.value = installState.value.policy.autoInstall;
-  }
   await check(true);
 }
 async function submit(policy: boolean) {
@@ -198,26 +215,55 @@ onBeforeUnmount(() => {
       <p class="text-sm text-gray-500">
         {{
           $t(
-            "登录后及页面打开期间每小时自动检查。升级前请备份服务器配置和面板数据。"
+            "登录后及页面打开期间每 5 分钟自动检查版本。升级前请备份服务器配置和面板数据。"
           )
         }}
       </p>
       <template v-if="owner">
         <el-alert
-          v-if="!installState?.agentAvailable"
-          :title="$t('宿主机更新程序未启用，请按部署教程安装更新服务')"
-          type="warning"
+          :title="$t(agentNotice.title)"
+          :description="$t(agentNotice.detail)"
+          :type="agentNotice.type"
           :closable="false"
         />
-        <p>{{ jobMessage }} {{ installState?.job.version ?? "" }}</p>
+        <p v-if="installState?.agent?.lastSeenAt" class="text-sm text-gray-500">
+          {{ $t("最近心跳：") }}{{ formatDate(installState.agent.lastSeenAt) }}
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <el-button :loading="stateLoading" @click="pollState">{{
+            $t("重新检查更新服务")
+          }}</el-button>
+          <el-link
+            :href="updaterGuide"
+            target="_blank"
+            rel="noopener noreferrer"
+            type="primary"
+          >
+            {{ $t("安装与排查说明") }}
+          </el-link>
+        </div>
+        <p v-if="installState">
+          {{ jobMessage }} {{ installState.job.version ?? "" }}
+        </p>
         <el-switch
           v-model="autoInstall"
-          :disabled="!installState?.agentAvailable"
+          :disabled="
+            !installState ||
+            stateLoading ||
+            (!installState.agentAvailable && !autoInstall)
+          "
           :active-text="$t('启用后台自动安装（每小时检查）')"
         />
-        <el-button :loading="submitting" @click="submit(true)">{{
-          $t("保存自动更新设置")
-        }}</el-button>
+        <el-button
+          :loading="submitting"
+          :disabled="
+            !installState ||
+            stateLoading ||
+            (autoInstall && !installState.agentAvailable)
+          "
+          @click="submit(true)"
+          >{{ $t("保存自动更新设置") }}</el-button
+        >
       </template>
     </div>
     <template #footer>
@@ -231,6 +277,8 @@ onBeforeUnmount(() => {
         :disabled="
           !state?.updateAvailable ||
           !state.installable ||
+          stateFailed ||
+          stateLoading ||
           !installState?.agentAvailable ||
           ['queued', 'downloading', 'building', 'installing'].includes(
             installState.job.state

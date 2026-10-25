@@ -1,9 +1,11 @@
 """Unprivileged update queue and release staging. No Docker socket in panel."""
 import argparse
 import asyncio
+from datetime import UTC, datetime
 import hashlib
 import io
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -41,14 +43,39 @@ def atomic_json(path, value):
     temporary.replace(path)
 
 
+def agent_state(path):
+    """Read a heartbeat without treating a missing file as proof of no service."""
+    try:
+        if path.is_symlink() or path.stat().st_size > 32768:
+            return {"status": "invalid"}
+        heartbeat = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {"status": "missing"}
+    except OSError:
+        return {"status": "unreadable"}
+    except (ValueError, UnicodeError):
+        return {"status": "invalid"}
+    stamp = heartbeat.get("at") if isinstance(heartbeat, dict) else None
+    if type(stamp) not in (int, float) or stamp <= 0:
+        return {"status": "invalid"}
+    try:
+        if not math.isfinite(stamp):
+            return {"status": "invalid"}
+        last_seen = datetime.fromtimestamp(stamp, UTC).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return {"status": "invalid"}
+    age = time.time() - stamp
+    return {"status": "clock_skew" if age < 0 else "ready" if age < 180 else "stale",
+            "lastSeenAt": last_seen, "ageSeconds": max(0, int(age))}
+
+
 def update_state(settings):
     root = directory(settings)
-    heartbeat = read_json(root / "agent.json", {})
-    stamp = heartbeat.get("at", 0) if isinstance(heartbeat, dict) else 0
+    agent = agent_state(root / "agent.json")
     policy = read_json(root / "policy.json", {})
     job = read_json(root / "status.json", {})
     pending = read_json(root / "request.json")
-    return {"agentAvailable": isinstance(stamp, (int, float)) and 0 <= time.time() - stamp < 180,
+    return {"agentAvailable": agent["status"] == "ready", "agent": agent,
             "policy": {"autoInstall": False, "source": "auto", **(policy if isinstance(policy, dict) else {})},
             "job": {**pending, "state": "queued"} if isinstance(pending, dict) else job if isinstance(job, dict) and job else {"state": "idle"}}
 

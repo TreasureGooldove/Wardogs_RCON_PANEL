@@ -125,7 +125,11 @@ docker compose -f deploy/compose.yaml up -d --force-recreate panel
 
 导航栏支持 GitHub、Gitee 和自动选择，比较最新稳定版本，同版本优先 Gitee。Release 为空或缺少可校验安装包时，读取 `updates` 分支的 `latest.json`；该分支仅发布构建完成并带 SHA-256 的发行包，不直接安装主分支源码。更新源不可用时明确显示失败。
 
+<a id="host-updater"></a>
+
 ### 安装宿主机更新服务（Linux Docker 部署）
+
+**仅启动面板容器不会安装此服务。** “检查版本 / 查看 Release / 手动下载”不需要宿主机更新服务；“安装新版本”和后台自动安装需要。未检测到服务不影响面板连接 RCON 和其他管理功能。Windows、无 systemd 或不符合下述目录布局的部署请使用手动升级。
 
 先备份数据库与环境文件。以下示例假定面板目录是 `/opt/wardogs-rcon-panel`，容器名为 `wardogs-rcon-panel`，数据文件为 `data/panel.sqlite3`，使用本项目 Compose 模板。自定义路径请同时修改 service 的 `ExecStart`，其他部署形式使用手动更新。
 
@@ -136,11 +140,46 @@ sudo install -m 644 deploy/wardogs-panel-updater.service /etc/systemd/system/
 sudo install -m 644 deploy/wardogs-panel-updater.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now wardogs-panel-updater.timer
+sudo systemctl start wardogs-panel-updater.service
 ```
+
+最后一条命令立即运行一次检测，避免等待 timer 首次调度；**自动安装保持默认关闭时只写入心跳，不会安装新版**。若此前已开启自动安装或存在排队任务，运行服务可能开始该任务，应先核对面板中的策略与任务状态。安装后点击“重新检查更新服务”，后续通常每 60 秒刷新一次心跳。oneshot 的 service 在完成后显示 `inactive (dead)` 可以是正常状态，应结合 timer、最后退出结果和心跳判断。
+
+自定义安装目录时，先编辑 `deploy/wardogs-panel-updater.service` 的 `ExecStart`，把 `--root` 改为实际项目根目录，再执行上面的安装命令。该目录必须使用项目 Compose 模板，并包含真实的 `data/panel.sqlite3`。容器 `PANEL_DB_PATH` 的父目录须挂载到同一个宿主机 `data/`；仅改 service 路径而不核对容器挂载仍会检测不到心跳。
 
 更新服务以 root 运行，具有 Docker 管理权限；只安装固定仓库发行包。面板容器不挂载 Docker socket。管理员在“检查更新”中输入当前密码，可安装一次或启用后台自动安装。**自动安装默认关闭**，开启后每小时检查；安装时面板短暂离线，游戏服务器不重启。
 
 服务独立下载并核对 SHA-256、检查压缩包路径和版本、备份 SQLite 数据库、构建镜像，再检查新版健康状态。失败时尝试恢复旧镜像与数据库；中断任务不会自动重放。备份在 `.updates-host/`，状态在 `data/updates/`。更新失败需要人工查看 `systemctl status wardogs-panel-updater.service`；不要删除备份。发行包不会覆盖 `panel.env`、Compose、服务器连接或管理员账户。宿主机更新程序本身有改动时，重新执行上面的 `install` 命令。
+
+### 更新服务不可用的排查
+
+先在“检查更新”点击“重新检查更新服务”。新版会区分以下原因，不再把所有情况都显示成“未启用”：
+
+| 显示状态 | 核对事项 |
+| --- | --- |
+| 未检测到心跳 | 是否安装服务、timer 是否调度、`--root` 与容器挂载是否指向同一数据目录 |
+| 心跳过期（达到 180 秒） | 服务最后退出结果、timer 是否运行；长时间更新期间心跳也可能过期，先查看任务日志，不重复提交 |
+| 无法读取心跳 | 共享目录挂载及容器用户权限；标准模板使用 UID/GID `10001:10001`，不要使用 `chmod 777` |
+| 格式无效 / 时间异常 | 更新服务日志与版本、宿主机时间同步；不要手写 `agent.json` 绕过检测 |
+| 无法读取更新服务状态 | 浏览器到面板的状态请求失败；检查登录、代理和面板容器，不能据此断言服务没安装 |
+
+在**部署面板的宿主机**执行以下只读命令；自定义路径需替换 `/opt/wardogs-rcon-panel`：
+
+```bash
+sudo systemctl status wardogs-panel-updater.timer wardogs-panel-updater.service --no-pager
+sudo systemctl list-timers --all wardogs-panel-updater.timer
+sudo journalctl -u wardogs-panel-updater.service -n 80 --no-pager
+sudo systemctl cat wardogs-panel-updater.service
+docker inspect wardogs-rcon-panel --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+sudo stat /opt/wardogs-rcon-panel/data/updates/agent.json
+docker exec wardogs-rcon-panel python -c 'from app.config import load_settings; from app.upgrade import update_state; s=update_state(load_settings()); print(s.get("agent", {"agentAvailable": s.get("agentAvailable")}))'
+```
+
+只向维护者提供必要的状态与已脱敏错误，不公开环境文件、数据库或完整私有日志。确认服务未安装时再按上节安装；已有任务失败时先查原因，不通过重启游戏排障。
+
+### 手动升级（不安装宿主机服务）
+
+从 GitHub / Gitee Release 下载 ZIP 和 `SHA256SUMS.txt`，核对 SHA-256；备份数据库、环境文件和旧版本。在保留 `data/`、`deploy/panel.env`、原 Compose 和反向代理配置的前提下替换应用与前端构建文件，再执行 `docker compose -f deploy/compose.yaml up -d --build panel`，检查健康和登录。保留回退副本；不要用新包的示例环境覆盖现有凭据。非 Docker 部署按原有服务方式更新并重启面板进程。
 
 ### 自动发布 Gitee 与空 Release 回退
 

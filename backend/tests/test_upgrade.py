@@ -98,6 +98,46 @@ def test_exclusive_queue_and_bad_heartbeat(tmp_path):
     assert exc.value.code == 'update_busy'
 
 
+@pytest.mark.parametrize('kind,stamp,expected', [
+    ('missing',None,'missing'), ('fresh',999,'ready'), ('stale',800,'stale'),
+    ('boundary',820,'stale'), ('future',1001,'clock_skew'),
+    ('string','999','invalid'), ('boolean',True,'invalid'),
+    ('nan',float('nan'),'invalid'), ('infinite',float('inf'),'invalid'),
+    ('zero',0,'invalid'), ('broken',None,'invalid'), ('oversize',None,'invalid'),
+    ('huge',10**400,'invalid'), ('negative',-1,'invalid'),
+])
+def test_updater_heartbeat_diagnoses_without_claiming_service_is_uninstalled(tmp_path, monkeypatch, kind, stamp, expected):
+    settings=PanelSettings(db_path=tmp_path/'panel.sqlite3',public_origin='https://panel.example.invalid',session_secure=True)
+    monkeypatch.setattr('app.upgrade.time.time',lambda:1000)
+    path=tmp_path/'updates/agent.json'
+    if kind!='missing':
+        path.parent.mkdir()
+        path.write_text('{' if kind=='broken' else ' '*32769 if kind=='oversize' else json.dumps({'at':stamp}))
+    before=path.read_bytes() if path.exists() else None
+    state=update_state(settings)
+    assert state['agent']['status']==expected
+    assert state['agentAvailable'] is (expected=='ready')
+    if expected in ('ready','stale','clock_skew'):
+        assert state['agent']['lastSeenAt'].endswith('+00:00')
+        assert state['agent']['ageSeconds']==max(0,1000-stamp)
+    assert (path.read_bytes() if path.exists() else None)==before
+    assert not (tmp_path/'updates/request.json').exists()
+
+
+def test_updater_read_permission_failure_is_distinct_from_missing(tmp_path,monkeypatch):
+    from pathlib import Path
+    settings=PanelSettings(db_path=tmp_path/'panel.sqlite3',public_origin='https://panel.example.invalid',session_secure=True)
+    path=tmp_path/'updates/agent.json'
+    atomic_json(path,{'at':time.time()})
+    original=Path.read_text
+    def denied(self,*args,**kwargs):
+        if self==path: raise PermissionError('fixture')
+        return original(self,*args,**kwargs)
+    monkeypatch.setattr(Path,'read_text',denied)
+    state=update_state(settings)
+    assert state['agent']['status']=='unreadable' and not state['agentAvailable']
+
+
 def test_install_requires_owner_password_and_origin(tmp_path):
     origin = 'https://panel.example.invalid'
     app = create_app(PanelSettings(db_path=tmp_path / 'panel.sqlite3', public_origin=origin, session_secure=True))
@@ -120,6 +160,9 @@ def test_install_requires_owner_password_and_origin(tmp_path):
         assert client.put('/api/panel/updates/policy', json={'password': 'wrong-password'}, headers=headers).status_code == 401
         assert client.put('/api/panel/updates/policy', json={'password': 'test-owner-password'}, headers={'Origin': 'https://evil.invalid'}).status_code == 401
         assert client.post('/api/panel/updates/install', json={'password': 'test-owner-password'}, headers=headers).status_code == 503
+        assert client.get('/api/panel/updates/state').json()['agent']['status'] == 'missing'
+        assert client.put('/api/panel/updates/policy', json={'password': 'test-owner-password', 'autoInstall': True}, headers=headers).status_code == 503
+        assert client.put('/api/panel/updates/policy', json={'password': 'test-owner-password', 'autoInstall': False}, headers=headers).status_code == 200
         atomic_json(tmp_path / 'updates/agent.json', {'at': time.time()})
         result = client.put('/api/panel/updates/policy', json={'password': 'test-owner-password', 'autoInstall': True, 'source': 'gitee'}, headers=headers)
         assert result.status_code == 200
