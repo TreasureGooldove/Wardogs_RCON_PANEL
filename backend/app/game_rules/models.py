@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, ValidationInfo, field_validator, model_validator
+from .catalog import MAX_ITEMS
 
 CATALOG = json.loads(Path(__file__).with_name('item-catalog.json').read_text(encoding='utf-8'))
 ITEMS = {item['id']: item for item in CATALOG['items']}
@@ -46,15 +47,8 @@ class FactionSettings(ClosedModel):
 
 
 class RestrictedItem(ClosedModel):
-    itemId: str = Field(min_length=1, max_length=128)
+    itemId: str = Field(min_length=1, max_length=128, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$')
     killCauses: list[str] = Field(default_factory=list, max_length=20)
-
-    @field_validator('itemId')
-    @classmethod
-    def known_item(cls, value):
-        if value not in ITEMS:
-            raise ValueError('unknown catalog item')
-        return value
 
     @field_validator('killCauses')
     @classmethod
@@ -72,7 +66,7 @@ class RestrictedItem(ClosedModel):
 
 class ItemSettings(ClosedModel):
     enabled: StrictBool = False
-    items: list[RestrictedItem] = Field(default_factory=list, max_length=175)
+    items: list[RestrictedItem] = Field(default_factory=list, max_length=MAX_ITEMS)
     cooldownSeconds: StrictInt = Field(default=30, ge=5, le=600)
 
     @model_validator(mode='after')
@@ -120,7 +114,8 @@ class ItemUsedEvent(ClosedModel):
         return value
 
     @model_validator(mode='after')
-    def catalog_kind(self):
-        if self.itemId not in ITEMS or ITEMS[self.itemId]['kind'] != self.itemKind:
+    def catalog_kind(self, info: ValidationInfo):
+        items = (info.context or {}).get('catalogItems', ITEMS)
+        if self.itemId not in items or items[self.itemId]['kind'] != self.itemKind:
             raise ValueError('itemId and itemKind must match the catalog')
         return self

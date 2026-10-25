@@ -26,6 +26,7 @@ from app.api.connection import router as connection_router
 from app.game_rules.store import GameRulesStore
 from app.game_rules.engine import GameRulesEngine
 from app.game_rules.shuffle import ShuffleStore
+from app.game_rules.catalog import ItemCatalogService
 from app.api.capabilities import router as capabilities_router
 from app.api.catalog import router as catalog_router
 from app.api.config_doc import router as config_doc_router
@@ -67,7 +68,7 @@ class FrontendFiles(StaticFiles):
 
     async def get_response(self, path: str, scope: dict) -> Response:
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
             if (
                 exc.status_code == 404
@@ -75,14 +76,21 @@ class FrontendFiles(StaticFiles):
                 and not scope.get("path", "").startswith("/api/")
                 and not Path(path).suffix  # History-mode route, never an absent asset.
             ):
-                return await super().get_response("index.html", scope)
-            raise
+                response = await super().get_response("index.html", scope)
+            else:
+                raise
+        if response.headers.get('content-type', '').startswith('text/html'):
+            response.headers['Cache-Control'] = 'no-store, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
 
 
 def create_app(
     settings: PanelSettings | None = None,
     *,
     rcon_transport: httpx.AsyncBaseTransport | None = None,
+    catalog_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
     database = Database(settings.db_path)
@@ -103,6 +111,7 @@ def create_app(
     auth_service = AuthService(database, settings)
     rcon_runtime = RconRuntime(settings, database, transport=rcon_transport)
     game_rules_store = GameRulesStore(database)
+    item_catalog = ItemCatalogService(database, transport=catalog_transport)
     game_rules_engine = GameRulesEngine(rcon_runtime, game_rules_store)
     shuffle_store = ShuffleStore(database)
     game_rules_engine.shuffle_store = shuffle_store
@@ -120,6 +129,7 @@ def create_app(
     async def lifespan(_app: FastAPI):
         if settings.public_origin.startswith("http://"):
             logging.getLogger(__name__).warning("您未部署在https版本 请留意数据安全")
+        catalog_task = asyncio.create_task(item_catalog.run())
         history_task = (
             asyncio.create_task(history_collector.run()) if settings.history_enabled else None
         )
@@ -130,6 +140,9 @@ def create_app(
         try:
             yield
         finally:
+            catalog_task.cancel()
+            await asyncio.gather(catalog_task, return_exceptions=True)
+            await item_catalog.close()
             awards_task.cancel()
             await asyncio.gather(awards_task,return_exceptions=True)
             for task in list(community_tasks):
@@ -178,6 +191,7 @@ def create_app(
     app.state.community_tasks = community_tasks
     app.state.kill_store = kill_store
     app.state.game_rules_store = game_rules_store
+    app.state.item_catalog = item_catalog
     app.state.game_rules_engine = game_rules_engine
     app.state.shuffle_store = shuffle_store
     app.state.anticheat_store = anticheat_store

@@ -162,7 +162,8 @@ async def test_fifty_vs_fifty_api_rejects_stale_writer_and_uses_two_team_status(
             'password': PASSWORD, 'acknowledgeRisk': True}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC,
                                 headers={'Origin': PUBLIC, 'X-Wardogs-Faction-Limits-Version': '2'}, cookies={'panel_session': token}) as client:
-        assert (await client.put('/api/game-rules/factions', json=body, headers={'X-Wardogs-Faction-Limits-Version': ''})).status_code == 400
+        stale = await client.put('/api/game-rules/factions', json=body, headers={'X-Wardogs-Faction-Limits-Version': ''})
+        assert stale.status_code == 409 and stale.json()['code']=='frontend_outdated'
         stale = {key: value for key, value in body.items() if key != 'limitsVersion'}
         assert (await client.put('/api/game-rules/factions', json=stale)).status_code == 400
         assert (await client.put('/api/game-rules/factions', json={**body, 'limits': dict.fromkeys(('Lonestar','Valkyra','Manticore'), 0)})).status_code == 400
@@ -420,6 +421,38 @@ def test_invalid_rules_do_not_silently_coerce_or_guess():
     with pytest.raises(ValidationError): ItemSettings(items=[{'itemId': 'm4', 'killCauses': ['M4']}, {'itemId': 'sks', 'killCauses': ['m4']}])
     with pytest.raises(ValidationError): ItemUsedEvent(type='itemUsed', eventId='test', matchId='round', mapName='map', steamId=SID,
         itemId='m4', itemKind='equipment', occurredAt=datetime.now(UTC))
+
+
+@pytest.mark.asyncio
+async def test_new_synced_items_validate_at_api_and_feed_boundaries_without_enabling_rules(panel):
+    from app.game_rules.catalog import ItemCatalogService
+    source='window.DATABASE={updated:"2026-10-19",items:[{id:"new-rifle",en:"New Rifle",n:"新步枪",k:"weapons",t:"步枪"},{id:"new-helmet",en:"Helmet",n:"头盔",k:"equipment",t:"护甲"}]};'
+    def handler(request):
+        return httpx.Response(200,text='<span id="db-updated">2026-10-19</span>' if request.url.path=='/weapons.html' else source)
+    await panel.state.item_catalog.close()
+    panel.state.item_catalog=ItemCatalogService(panel.state.database,transport=httpx.MockTransport(handler))
+    token=panel.state.auth_service.login('owner',PASSWORD,'test')[1]
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel),base_url=PUBLIC,
+            headers={'Origin':PUBLIC},cookies={'panel_session':token}) as client:
+        assert (await client.post('/api/game-rules/catalog/refresh',headers={'Origin':'https://other.example.test'})).status_code==401
+        synced=await client.post('/api/game-rules/catalog/refresh')
+        assert synced.status_code==200 and synced.json()['sync']['status']=='ok'
+        view=(await client.get('/api/game-rules')).json()
+        assert any(i['id']=='new-rifle' for i in view['catalog']['items'])
+        body={'enabled':False,'items':[{'itemId':'new-rifle','killCauses':[]}],'targetRevision':view['targetRevision']}
+        assert (await client.put('/api/game-rules/items',json=body)).status_code==200
+        assert (await client.put('/api/game-rules/items',json={**body,'items':[{'itemId':'unrecognized-id'}]})).status_code==400
+        assert not (await client.get('/api/game-rules')).json()['items']['active']
+    result=await push(panel,[{'type':'itemUsed','eventId':'synced-item-event','matchId':'game-round-1',
+        'mapName':'TestMap','steamId':SID,'itemId':'new-rifle','itemKind':'weapons','occurredAt':datetime.now(UTC).isoformat()}])
+    assert result.status_code==200 and result.json()['itemUsesAccepted']==1
+    panel.state.auth_service.create_subuser('catalog-viewer',PASSWORD)
+    viewer=panel.state.auth_service.login('catalog-viewer',PASSWORD,'test-viewer')[1]
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel),base_url=PUBLIC,
+            headers={'Origin':PUBLIC},cookies={'panel_session':viewer}) as client:
+        assert (await client.post('/api/game-rules/catalog/refresh')).status_code==403
+    panel.state.send.assert_not_called()
+    await panel.state.item_catalog.close()
 
 
 def test_equal_destination_populations_use_random_selection(monkeypatch):

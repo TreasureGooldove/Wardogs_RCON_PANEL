@@ -11,7 +11,7 @@ from pydantic import Field, SecretStr, StrictBool
 from app.api.auth import require_admin
 from app.api.community import _check, _target
 from app.errors import PanelError
-from app.game_rules.models import CATALOG, ClosedModel, FactionSettings, ItemSettings, faction_name
+from app.game_rules.models import ClosedModel, FactionSettings, ItemSettings, faction_name
 from app.game_rules.shuffle import context_for, deliver_shuffle, fresh_sample, roster_state, shuffle_plan, verify_context
 from app.rcon.routes import WriteName, write_route_for
 
@@ -129,7 +129,15 @@ async def view(request: Request, response: Response):
             'items': store.view(origin, 'items', revision), 'observation': observation,
             'evidence': store.evidence_view(origin), 'historyEnabled': request.app.state.settings.history_enabled,
             'feedConfigured': bool(request.app.state.settings.feed_token and request.app.state.settings.feed_origin == origin),
-            'equipmentInventoryAvailable': False, 'catalog': CATALOG}
+            'equipmentInventoryAvailable': False, 'catalog': request.app.state.item_catalog.view()}
+
+
+@router.post('/catalog/refresh')
+async def refresh_catalog(request: Request, response: Response):
+    request.app.state.auth_service.require_owner(request)
+    request.app.state.auth_service.check_origin(request)
+    response.headers['Cache-Control'] = 'no-store'
+    return await request.app.state.item_catalog.refresh(force=True)
 
 
 async def _save(payload, kind, request):
@@ -141,6 +149,8 @@ async def _save(payload, kind, request):
         # A v1 browser can copy limitsVersion from a fresh GET while retaining
         # its old zero-means-unlimited form. Require a writer-owned marker too.
         if kind == 'factions' and request.headers.get('X-Wardogs-Faction-Limits-Version') != '2':
+            raise PanelError('frontend_outdated')
+        if kind == 'items' and any(item.itemId not in request.app.state.item_catalog.items for item in payload.items):
             raise PanelError('invalid_selection')
         if payload.enabled:
             if not payload.acknowledgeRisk or payload.password is None or not request.app.state.settings.history_enabled:

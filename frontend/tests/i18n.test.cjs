@@ -28,7 +28,8 @@ for (const file of [
   "faction-control.json",
   "faction-shuffle.json",
   "infantry.json",
-  "updater-status.json"
+  "updater-status.json",
+  "catalog-sync.json"
 ])
   test(`${file} messages cover every supported language`, () => {
     const messages = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));

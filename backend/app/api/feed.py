@@ -103,7 +103,7 @@ async def ingest(request: Request):
         if not isinstance(events,list) or len(events)>200 or any(not isinstance(e,dict) for e in events):
             raise ValueError('invalid batch')
         kills=[KillEvent.model_validate(e).model_dump(mode='json') for e in events if e.get('type')=='killed']
-        item_uses=[ItemUsedEvent.model_validate(e).model_dump(mode='json') for e in events if e.get('type')=='itemUsed']
+        item_uses=[ItemUsedEvent.model_validate(e, context={'catalogItems':request.app.state.item_catalog.items}).model_dump(mode='json') for e in events if e.get('type')=='itemUsed']
     except (ValueError,TypeError,ValidationError,RecursionError) as exc:
         raise PanelError('feed_invalid_batch') from exc
     runtime=request.app.state.rcon_runtime

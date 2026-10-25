@@ -10,6 +10,7 @@ import {
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   getGameRules,
+  refreshItemCatalog,
   previewFactionShuffle,
   executeFactionShuffle,
   getFactionShuffle,
@@ -99,7 +100,29 @@ const initialized = ref(false);
 const error = ref("");
 const owner = computed(() => useUserStoreHook().role === "owner");
 const tab = ref("factions");
+const frontendVersion = __PANEL_VERSION__;
 const catalog = computed(() => data.value?.catalog.items || []);
+const catalogStatus = computed(() =>
+  t(
+    (
+      {
+        bundled: "当前使用随包目录，等待首次自动同步",
+        ok: "物品目录已同步",
+        unavailable: "来源暂不可达，保留上次有效目录",
+        cache_error: "目录缓存暂不可写，请检查数据目录与磁盘空间",
+        invalid: "来源格式校验失败，保留上次有效目录"
+      } as Record<string, string>
+    )[data.value?.catalog.sync?.status ?? "bundled"]
+  )
+);
+async function syncCatalog() {
+  await run(async () => {
+    const result = await refreshItemCatalog();
+    if (data.value) data.value.catalog = result;
+    if (result.sync.status === "ok") ElMessage.success(t("物品目录已同步"));
+    else ElMessage.warning(catalogStatus.value);
+  });
+}
 const catalogGroups = computed(() => [
   {
     kind: "weapons",
@@ -129,7 +152,7 @@ const states: Record<string, string> = {
 function itemLabel(id: string) {
   const item = catalog.value.find(i => i.id === id);
   return item
-    ? `${locale.value.startsWith("zh") ? item.name : item.englishName} (${item.id})`
+    ? `${locale.value.startsWith("zh") ? item.name : item.englishName} (${item.id})${item.retired ? " · " + t("来源已移除，保留已有规则") : ""}`
     : id;
 }
 function receiptLabel(row: RuleReceipt) {
@@ -298,6 +321,9 @@ onUnmounted(() => {
       :closable="false"
       :title="t('仅主账号可配置自动规则，子用户只能查看。')"
     />
+    <p class="my-2 text-sm text-gray-500">
+      {{ t("前端构建版本：") }}{{ frontendVersion }}
+    </p>
     <template v-if="initialized && data && factionForm && itemForm">
       <el-alert
         v-if="!data.historyEnabled"
@@ -478,6 +504,46 @@ onUnmounted(() => {
           >
         </el-tab-pane>
         <el-tab-pane :label="t('武器与装备禁用')" name="items">
+          <el-card shadow="never" class="mb-4">
+            <template #header>{{ t("物品目录自动同步") }}</template>
+            <p>{{ catalogStatus }}</p>
+            <p class="my-2 text-sm text-gray-500">
+              {{
+                t(
+                  "启动后及每 6 小时自动获取；失败后 15 分钟重试，手动同步间隔至少 60 秒。"
+                )
+              }}
+            </p>
+            <p>
+              {{
+                t("可用武器 {p0} 件，装备 {p1} 件", {
+                  p0: catalog.filter(i => i.kind === "weapons" && !i.retired)
+                    .length,
+                  p1: catalog.filter(i => i.kind === "equipment" && !i.retired)
+                    .length
+                })
+              }}
+            </p>
+            <p class="mt-2 text-sm">
+              {{ t("数据文件标注日期") }}：{{ data.catalog.sourceUpdatedAt }} ·
+              {{ t("页面标注日期") }}：{{ data.catalog.pageUpdatedAt ?? "—" }}
+            </p>
+            <p class="mt-2 text-sm">
+              {{ t("最近成功同步") }}：{{
+                formatDate(data.catalog.sync?.lastSuccessAt)
+              }}
+            </p>
+            <p class="my-2 text-sm text-gray-500">
+              {{
+                t(
+                  "新增物品自动加入可选目录，不自动添加禁用规则；已保存的规则及原因映射保持原样。"
+                )
+              }}
+            </p>
+            <el-button v-if="owner" :loading="busy" @click="syncCatalog">{{
+              t("立即同步物品目录")
+            }}</el-button>
+          </el-card>
           <el-alert
             type="warning"
             :closable="false"
@@ -545,7 +611,10 @@ onUnmounted(() => {
                   :key="item.id"
                   :value="item.id"
                   :label="itemLabel(item.id)"
-                  :disabled="itemForm.items.some(i => i.itemId === item.id)"
+                  :disabled="
+                    item.retired ||
+                    itemForm.items.some(i => i.itemId === item.id)
+                  "
                 />
               </el-option-group>
             </el-select>

@@ -42,6 +42,10 @@ const state = ref<ReleaseStatus | null>(null);
 const visible = ref(false);
 const loading = ref(false);
 const failed = ref(false);
+const frontendVersion = __PANEL_VERSION__;
+const frontendMismatch = computed(
+  () => !!state.value && state.value.currentVersion !== frontendVersion
+);
 let policyLoaded = false;
 let timer: ReturnType<typeof setInterval>;
 const message = computed(() => {
@@ -189,6 +193,18 @@ onBeforeUnmount(() => {
   >
     <div class="space-y-3">
       <p>{{ $t("当前版本：") }}{{ state?.currentVersion ?? $t("读取中") }}</p>
+      <p>{{ $t("前端构建版本：") }}{{ frontendVersion }}</p>
+      <el-alert
+        v-if="frontendMismatch"
+        type="warning"
+        :closable="false"
+        :title="$t('前端与后端版本不一致')"
+        :description="
+          $t(
+            '请先使用 Ctrl+F5 强制刷新；若仍不一致，请更新完整 Release 安装包并重建面板，检查反向代理或 CDN 是否缓存旧页面。'
+          )
+        "
+      />
       <p>
         {{ $t("最新发行版本：") }}{{ state?.latestVersion ?? $t("尚未获取") }}
       </p>

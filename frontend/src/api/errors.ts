@@ -2,6 +2,7 @@ import { t } from "@/i18n";
 import { isAxiosError } from "axios";
 
 export type ApiErrorCode =
+  | "frontend_outdated"
   | "shuffle_two_factions"
   | "shuffle_capacity"
   | "shuffle_stale"
@@ -46,6 +47,8 @@ export interface ApiErrorBody {
 }
 
 const messages: Record<ApiErrorCode, string> = {
+  frontend_outdated:
+    "前端页面版本过旧，请强制刷新；若仍未更新，请同时更新前端构建和后端并重建面板",
   shuffle_two_factions:
     "请先保存仅开放两个阵营的规则，并确认在线人数为 2–200 人",
   shuffle_capacity: "两个开放阵营的人数上限不足以容纳全部在线玩家",

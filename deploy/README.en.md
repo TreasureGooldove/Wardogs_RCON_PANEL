@@ -119,6 +119,8 @@ In Server Settings, enable public HTTP RCON, enter the address and RCON password
 
 ## 5. Verification and upgrades
 
+The installed version comes from the backend and does not prove that the browser loaded the matching frontend. Upgrade both backend and the Release's `frontend/dist`, then rebuild the panel container; source archives require a frontend build first. If new controls are missing, hard-refresh with `Ctrl+F5` and compare the dialog's frontend build version. HTML entry points use no-store; do not override this with long-lived proxy/CDN HTML caching. Content-hashed assets can retain normal caching.
+
 Verify health, page access, login, and read-only queries. Do not test disruptive game commands while players are online. Investigate uncertain writes before any retry.
 
 The navigation checks stable GitHub and Gitee releases. Automatic installation requires the host service below and an explicit owner opt-in. Manual updates remain available: back up the database and environment, verify `SHA256SUMS.txt`, replace application/frontend build files, and run `docker compose -f deploy/compose.yaml up -d --build`. Retain the previous version for rollback.

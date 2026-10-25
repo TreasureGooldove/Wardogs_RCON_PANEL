@@ -47,6 +47,23 @@ export interface CatalogItem {
   englishName: string;
   kind: "weapons" | "equipment";
   category: string;
+  retired?: boolean;
+}
+export interface ItemCatalog {
+  source: string;
+  upstreamSource: string;
+  sourceUpdatedAt: string;
+  pageUpdatedAt?: string;
+  retrievedAt: string;
+  activeCount: number;
+  refreshIntervalSeconds: number;
+  sync: {
+    status: "bundled" | "ok" | "unavailable" | "invalid" | "cache_error";
+    lastAttemptAt: string | null;
+    lastSuccessAt: string | null;
+    lastError: string | null;
+  };
+  items: CatalogItem[];
 }
 export interface GameRulesView {
   latestShuffle: ShuffleJob | null;
@@ -65,16 +82,14 @@ export interface GameRulesView {
   historyEnabled: boolean;
   feedConfigured: boolean;
   equipmentInventoryAvailable: boolean;
-  catalog: {
-    source: string;
-    upstreamSource: string;
-    sourceUpdatedAt: string;
-    retrievedAt: string;
-    items: CatalogItem[];
-  };
+  catalog: ItemCatalog;
 }
 export const getGameRules = () =>
   http.request<GameRulesView>("get", "/api/game-rules");
+export const refreshItemCatalog = () =>
+  http.request<ItemCatalog>("post", "/api/game-rules/catalog/refresh", {
+    timeout: 30000
+  });
 type Confirmation = {
   targetRevision: string;
   acknowledgeRisk: boolean;

@@ -1,6 +1,12 @@
 import { getPluginsList } from "./build/plugins";
 import { include, exclude } from "./build/optimize";
-import { type UserConfigExport, type ConfigEnv, loadEnv } from "vite";
+import {
+  type UserConfigExport,
+  type ConfigEnv,
+  type Plugin,
+  loadEnv
+} from "vite";
+import { readFileSync } from "node:fs";
 import {
   root,
   alias,
@@ -10,6 +16,21 @@ import {
 } from "./build/utils";
 
 export default ({ mode }: ConfigEnv): UserConfigExport => {
+  const panelVersion = readFileSync(
+    new URL("../backend/pyproject.toml", import.meta.url),
+    "utf8"
+  ).match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+  if (!panelVersion) throw new Error("Panel backend version is missing");
+  const buildIdentity: Plugin = {
+    name: "wardogs-panel-build-version",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "panel-build.json",
+        source: JSON.stringify({ version: panelVersion })
+      });
+    }
+  };
   const { VITE_CDN, VITE_PORT, VITE_COMPRESSION, VITE_PUBLIC_PATH } =
     wrapperEnv(loadEnv(mode, root));
   return {
@@ -35,7 +56,7 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
         clientFiles: ["./index.html", "./src/{views,components}/*"]
       }
     },
-    plugins: getPluginsList(VITE_CDN, VITE_COMPRESSION),
+    plugins: [...getPluginsList(VITE_CDN, VITE_COMPRESSION), buildIdentity],
     // https://cn.vitejs.dev/config/dep-optimization-options.html#dep-optimization-options
     optimizeDeps: {
       include,
@@ -60,6 +81,7 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
       }
     },
     define: {
+      __PANEL_VERSION__: JSON.stringify(panelVersion),
       __INTLIFY_PROD_DEVTOOLS__: false,
       __APP_INFO__: JSON.stringify(__APP_INFO__)
     }

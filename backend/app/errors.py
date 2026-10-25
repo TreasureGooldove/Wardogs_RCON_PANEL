@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 
 _ERRORS: dict[str, tuple[int, str]] = {
+    "frontend_outdated": (409, "前端页面版本过旧，请强制刷新；若仍未更新，请同时更新前端构建和后端并重建面板"),
     "shuffle_two_factions": (400, "请先保存仅开放两个阵营的规则，并确认在线人数为 2–200 人"),
     "shuffle_capacity": (409, "两个开放阵营的人数上限不足以容纳全部在线玩家"),
     "shuffle_stale": (409, "打乱预览已过期，或名单、阵营、对局及规则已变化，请重新预览"),

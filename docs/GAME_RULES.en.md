@@ -8,6 +8,8 @@ Sidebar: **Faction and item restrictions**. Both automation features are disable
 
 ## Faction population control
 
+If the version dialog reports a new version but the page still says zero means unlimited, or lacks the 50V50/allow-players controls, hard-refresh with `Ctrl+F5`. If needed, replace both backend and `frontend/dist` using the complete Release ZIP, rebuild the panel container, and clear proxy/CDN HTML caches. The dialog now displays frontend build and backend versions separately. Old faction forms are rejected with a clear refresh message.
+
 - Separate limits for Lonestar, Valkyra, and Manticore: `0` closes a faction; `-1` means unlimited. Each faction also has an allow-players switch.
 - **50V50:** Select the closed faction and fill the draft. The other two receive 50 slots each, a maximum difference of 1, and no minimum population gate. This does not automatically enable or save automation; owner-password confirmation is retained.
 - Optionally enforce a maximum population difference of 1–1000, default 2, among open factions only.
@@ -22,6 +24,12 @@ Uses existing observations: while watched, players/status approximately every 1/
 Upgrade migration converts legacy unlimited `0` values to `-1` once, preserving positive limits and enabled state. New `0` settings stay closed across restarts. Refresh old browser tabs before saving. API writers must send `limitsVersion: 2` and the `X-Wardogs-Faction-Limits-Version: 2` header to prevent old forms from closing factions accidentally.
 
 This corrects populations after sampling; it cannot prevent a player from joining first or guarantee compliance at every instant. Transfers may affect ongoing combat. Displayed counts are the latest observations.
+
+## Automatic item catalog synchronization
+
+The catalog reads the public data file behind [WARDOGS Helper](https://wardogs.t0ki.cn/weapons.html) at startup and every 6 hours, retrying failures after 15 minutes. The owner can sync manually, at most once per 60 seconds. The UI shows counts, sync status and the last success. Data-file and page dates are shown separately because the upstream labels may differ.
+
+New weapons/equipment become selectable automatically; **restriction rules and exact cause mappings are never created or changed automatically**. Removed IDs remain marked for existing rules but cannot be newly selected in the UI. Network/format failures retain the last valid catalog in the panel database; first offline startup uses the bundled snapshot. The importer parses data without executing remote JavaScript and does not write game server configuration.
 
 ## Weapon enforcement by forced kill
 
