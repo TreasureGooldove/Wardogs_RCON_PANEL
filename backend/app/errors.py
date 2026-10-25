@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 
 _ERRORS: dict[str, tuple[int, str]] = {
+    "origin_mismatch": (401, "请求来源与面板部署地址不一致，请检查 PANEL_PUBLIC_ORIGIN 和反向代理配置"),
     "frontend_outdated": (409, "前端页面版本过旧，请强制刷新；若仍未更新，请同时更新前端构建和后端并重建面板"),
     "shuffle_two_factions": (400, "请先保存仅开放两个阵营的规则，并确认在线人数为 2–200 人"),
     "shuffle_capacity": (409, "两个开放阵营的人数上限不足以容纳全部在线玩家"),
@@ -78,6 +79,7 @@ class PanelError(Exception):
 
 def install_error_handlers(app: FastAPI) -> None:
     def response_for(request: Request, exc: PanelError) -> JSONResponse:
+        request.state.error_code = exc.code
         request_id = getattr(request.state, "request_id", None) or str(uuid4())
         # Log only bounded internal metadata. Never log an upstream URL/body or a token.
         logger.info("request_id=%s code=%s status=%d", request_id, exc.code, exc.status_code)
@@ -108,7 +110,7 @@ def install_error_handlers(app: FastAPI) -> None:
             code = "invalid_moderation_target"
         elif request.url.path == "/api/steam/profiles":
             code = "invalid_steam_ids"
-        elif request.url.path.startswith(("/api/rules", "/api/warmup", "/api/community", "/api/anticheat", "/api/game-rules")):
+        elif request.url.path.startswith(("/api/rules", "/api/warmup", "/api/community", "/api/anticheat", "/api/game-rules", "/api/panel/logs")):
             code = "invalid_selection"
         elif request.url.path == "/api/server/warnings":
             code = "invalid_moderation_reason" if request.method == "POST" else "invalid_moderation_target"

@@ -90,7 +90,7 @@ class AuthService:
 
     def check_origin(self, request: Request) -> None:
         if request.headers.get("origin") != self.settings.public_origin:
-            raise PanelError("not_authenticated")
+            raise PanelError("origin_mismatch")
 
     def login(self, username: str, password: str, client_key: str) -> tuple[AdminAccount, str]:
         now = self.clock()

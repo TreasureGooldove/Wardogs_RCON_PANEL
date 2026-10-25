@@ -5,7 +5,8 @@ import {
   onDeactivated,
   onMounted,
   onUnmounted,
-  ref
+  ref,
+  watch
 } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
@@ -27,12 +28,44 @@ import { getApiErrorMessage } from "@/api/errors";
 import { useUserStoreHook } from "@/store/modules/user";
 import { FACTIONS } from "@/utils/factions";
 import { fiftyVsFiftyDraft } from "@/utils/factionControl";
+import {
+  rememberFactionDraft,
+  restoreFactionDraft,
+  sameFactionSettings
+} from "@/utils/factionDraft";
 import FactionEmblem from "@/components/FactionEmblem.vue";
+import { reportPanelError } from "@/utils/clientLogs";
 import { formatDate, locale, t } from "@/i18n";
 
 defineOptions({ name: "GameRules" });
 const data = ref<GameRulesView>();
 const factionForm = ref<FactionSettings>();
+const savedFaction = ref<FactionSettings>();
+let draftStorage: Storage | null = null;
+try {
+  draftStorage = sessionStorage;
+} catch {
+  /* Optional browser storage. */
+}
+const factionDirty = computed(
+  () =>
+    !!factionForm.value &&
+    !!savedFaction.value &&
+    !sameFactionSettings(factionForm.value, savedFaction.value)
+);
+watch(
+  factionForm,
+  () => {
+    if (data.value && factionForm.value && savedFaction.value)
+      rememberFactionDraft(
+        draftStorage,
+        data.value.targetRevision,
+        savedFaction.value,
+        factionForm.value
+      );
+  },
+  { deep: true }
+);
 const excludedFaction = ref<FactionName>("Lonestar");
 const shuffle = ref<ShuffleJob>();
 const shuffleVisible = ref(false);
@@ -189,6 +222,7 @@ async function run(work: () => Promise<void>) {
 }
 async function load(reset = false) {
   const result = await getGameRules();
+  const switched = data.value?.targetRevision !== result.targetRevision;
   data.value = result;
   if (!shuffle.value && result.latestShuffle) {
     shuffle.value = result.latestShuffle;
@@ -197,8 +231,15 @@ async function load(reset = false) {
   if (shuffle.value && shuffle.value.phase === "running")
     shuffle.value = await getFactionShuffle(shuffle.value.id);
   // Refresh observations without discarding unsaved form edits.
-  if (reset || !factionForm.value)
-    factionForm.value = structuredClone(result.factions.settings);
+  if (reset || switched || !factionForm.value) {
+    savedFaction.value = structuredClone(result.factions.settings);
+    factionForm.value =
+      restoreFactionDraft(
+        draftStorage,
+        result.targetRevision,
+        savedFaction.value
+      ) ?? structuredClone(result.factions.settings);
+  }
   if (reset || !itemForm.value)
     itemForm.value = structuredClone(result.items.settings);
 }
@@ -236,15 +277,36 @@ async function save(kind: "factions" | "items") {
       acknowledgeRisk: !!password,
       password
     };
+    const submitted = JSON.parse(JSON.stringify(settings));
     if (kind === "factions")
       await saveFactionRules({ ...factionForm.value, ...confirmation });
     else await saveItemRules({ ...itemForm.value, ...confirmation });
     // Reconcile the saved section only, preserving edits in the other tab.
     const result = await getGameRules();
     data.value = result;
-    if (kind === "factions")
+    if (kind === "factions") {
+      savedFaction.value = structuredClone(result.factions.settings);
+      if (!sameFactionSettings(submitted, result.factions.settings)) {
+        error.value = t(
+          "保存后的回读与提交不一致，草稿已保留，请查看面板日志并核对部署的数据目录，不要反复提交。"
+        );
+        rememberFactionDraft(
+          draftStorage,
+          result.targetRevision,
+          savedFaction.value,
+          factionForm.value
+        );
+        reportPanelError("save_readback", new Error());
+        return;
+      }
       factionForm.value = structuredClone(result.factions.settings);
-    else itemForm.value = structuredClone(result.items.settings);
+      rememberFactionDraft(
+        draftStorage,
+        result.targetRevision,
+        savedFaction.value,
+        factionForm.value
+      );
+    } else itemForm.value = structuredClone(result.items.settings);
     ElMessage.success(t("设置已保存"));
   });
 }
@@ -333,6 +395,18 @@ onUnmounted(() => {
       />
       <el-tabs v-model="tab" class="my-4">
         <el-tab-pane :label="t('阵营人数控制')" name="factions">
+          <el-alert
+            :type="factionDirty ? 'warning' : 'info'"
+            :closable="false"
+            class="mb-3"
+            :title="
+              t(
+                factionDirty
+                  ? '未应用草稿已在当前浏览器临时保留，切换页面不会丢失；点击保存后才写入面板，启用仍需密码确认。'
+                  : '参数与服务器保存值一致，实际启用状态以下方运行状态为准。'
+              )
+            "
+          />
           <el-alert
             type="info"
             :closable="false"

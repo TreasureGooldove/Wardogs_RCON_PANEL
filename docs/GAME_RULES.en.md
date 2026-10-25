@@ -8,6 +8,8 @@ Sidebar: **Faction and item restrictions**. Both automation features are disable
 
 ## Faction population control
 
+Edits are retained as a temporary browser-session draft across navigation. They do not automatically save or enable transfers. Save rules explicitly; enabling still requires the owner password. Saved settings are read back and compared before showing success. Drafts are not restored for another target or changed baseline. Disabling automation does not discard population limits.
+
 If the version dialog reports a new version but the page still says zero means unlimited, or lacks the 50V50/allow-players controls, hard-refresh with `Ctrl+F5`. If needed, replace both backend and `frontend/dist` using the complete Release ZIP, rebuild the panel container, and clear proxy/CDN HTML caches. The dialog now displays frontend build and backend versions separately. Old faction forms are rejected with a clear refresh message.
 
 - Separate limits for Lonestar, Valkyra, and Manticore: `0` closes a faction; `-1` means unlimited. Each faction also has an allow-players switch.
@@ -128,4 +130,4 @@ Viewers see live counters. Editing uses the existing Config permission and rotat
 
 ## Catalog sources
 
-Names and categories reference the [WARDOGS community helper database](https://wardogs.t0ki.cn/weapons.html), which credits [wardogs.zone](https://wardogs.zone/database). The snapshot contains 38 weapons and 137 equipment items, retaining only identifiers, names, and categories, not website images, code, prices, or damage data. The data file identifies 2026-09-04 as its update date; retrieval was 2026-10-05. Page and data dates may differ, and upstream content may change. These IDs serve selection and the extension contract; they are not guaranteed to match native RCON fields.
+Names and categories reference the [WARDOGS community helper database](https://wardogs.t0ki.cn/weapons.html), which credits [wardogs.zone](https://wardogs.zone/database). The bundled snapshot contains 42 weapons and 140 equipment items, retaining only identifiers, names, and categories, not website images, code, prices, or damage data. The data file identifies 2026-10-10 as its update date; retrieval was 2026-10-25. Page and data dates may differ; consult the runtime sync status for later updates. These IDs serve selection and the extension contract; they are not guaranteed to match native RCON fields.

@@ -126,7 +126,7 @@ def test_expired_or_disabled_admin_session_is_rejected(panel):
 
 def test_origin_mismatch_and_login_rate_limit(panel):
     client, _, _ = panel
-    assert_error(login(client, origin="https://attacker.example"), "not_authenticated", 401)
+    assert_error(login(client, origin="https://attacker.example"), "origin_mismatch", 401)
     for _ in range(5):
         assert_error(login(client, "incorrect"), "invalid_credentials", 401)
     assert_error(login(client, "incorrect"), "rate_limited", 429)

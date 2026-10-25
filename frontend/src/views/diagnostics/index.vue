@@ -14,6 +14,7 @@ import {
 } from "@/api/diagnostics";
 import { getApiErrorMessage } from "@/api/errors";
 import { formatObservedAt } from "@/api/snapshot";
+import PanelLogs from "@/components/PanelLogs.vue";
 
 defineOptions({ name: "ServerDiagnostics" });
 
@@ -62,6 +63,7 @@ onMounted(refresh);
 
 <template>
   <div class="space-y-5 p-5">
+    <PanelLogs />
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-semibold">{{ $t("服务器诊断") }}</h1>

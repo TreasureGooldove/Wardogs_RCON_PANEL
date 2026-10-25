@@ -4,6 +4,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from html import unescape
 import json
+import logging
 from pathlib import Path
 import re
 import sqlite3
@@ -208,6 +209,7 @@ class ItemCatalogService:
             except sqlite3.Error:
                 self.sync.update(status='cache_error', lastError='cache_unavailable')
                 self.next_check = time.monotonic() + 900
+            logging.getLogger('wardogs.catalog').info('catalog_sync status=%s items=%d',self.sync['status'],len(self.items))
             return self.view()
 
     async def run(self):

@@ -5,6 +5,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 import asyncio
 import logging
+import os
+from time import monotonic
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,6 +29,8 @@ from app.game_rules.store import GameRulesStore
 from app.game_rules.engine import GameRulesEngine
 from app.game_rules.shuffle import ShuffleStore
 from app.game_rules.catalog import ItemCatalogService
+from app.panel_logs import PanelLogs
+from app.api.panel_logs import router as panel_logs_router
 from app.api.capabilities import router as capabilities_router
 from app.api.catalog import router as catalog_router
 from app.api.config_doc import router as config_doc_router
@@ -112,6 +116,12 @@ def create_app(
     rcon_runtime = RconRuntime(settings, database, transport=rcon_transport)
     game_rules_store = GameRulesStore(database)
     item_catalog = ItemCatalogService(database, transport=catalog_transport)
+    def log_secrets():
+        values=[value for key,value in os.environ.items() if any(word in key.upper() for word in ('PASSWORD','TOKEN','SECRET','BEARER','API_KEY','CONFIG_KEY'))]
+        target=rcon_runtime.target
+        if target: values.append(target.bearer_secret)
+        return values
+    panel_logs=PanelLogs(settings.db_path.parent,secrets=log_secrets)
     game_rules_engine = GameRulesEngine(rcon_runtime, game_rules_store)
     shuffle_store = ShuffleStore(database)
     game_rules_engine.shuffle_store = shuffle_store
@@ -127,6 +137,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        panel_logs.start()
         if settings.public_origin.startswith("http://"):
             logging.getLogger(__name__).warning("您未部署在https版本 请留意数据安全")
         catalog_task = asyncio.create_task(item_catalog.run())
@@ -173,6 +184,7 @@ def create_app(
             await rcon_runtime.close()
             await steam_service.close()
             await release_checker.close()
+            panel_logs.close()
 
     app = FastAPI(title="Wardogs RCON Panel", version=APP_VERSION, lifespan=lifespan)
     app.state.settings = settings
@@ -192,6 +204,7 @@ def create_app(
     app.state.kill_store = kill_store
     app.state.game_rules_store = game_rules_store
     app.state.item_catalog = item_catalog
+    app.state.panel_logs = panel_logs
     app.state.game_rules_engine = game_rules_engine
     app.state.shuffle_store = shuffle_store
     app.state.anticheat_store = anticheat_store
@@ -213,7 +226,17 @@ def create_app(
     @app.middleware("http")
     async def request_id(request: Request, call_next):
         request.state.request_id = str(uuid4())
-        response = await call_next(request)
+        started=monotonic()
+        try:
+            response = await call_next(request)
+        except Exception as error:
+            panel_logs.exception(error,requestId=request.state.request_id)
+            raise
+        route=request.scope.get('route')
+        path=getattr(route,'path',None) or ('/api/*' if request.url.path.startswith('/api/') else 'static')
+        panel_logs.emit('http','ERROR' if response.status_code>=500 else 'WARNING' if response.status_code>=400 else 'INFO',
+            method=request.method,route=path,status=response.status_code,
+            durationMs=round((monotonic()-started)*1000,1),code=getattr(request.state,'error_code',None),requestId=request.state.request_id)
         response.headers["X-Request-ID"] = request.state.request_id
         if request.url.path.startswith(("/api/bot/", "/api/community/", "/api/steam/", "/api/ingest/", "/api/game-rules", "/api/server/connection")) or request.url.path == "/api/server/bot-api-status":
             response.headers["Cache-Control"] = "no-store"
@@ -231,6 +254,7 @@ def create_app(
         warmup_router,
         steam_router,
         updates_router,
+        panel_logs_router,
         bot_router,
         community_router, feed_router, game_rules_router, connection_router,
     ):

@@ -9,6 +9,7 @@ import factionShuffle from "./faction-shuffle.json";
 import infantry from "./infantry.json";
 import updaterStatus from "./updater-status.json";
 import catalogSync from "./catalog-sync.json";
+import operations from "./operations.json";
 import en from "./en-US.json";
 import ja from "./ja-JP.json";
 import ko from "./ko-KR.json";
@@ -42,7 +43,8 @@ const messages: Record<LocaleCode, Messages> = {
     ...factionShuffle["zh-CN"],
     ...infantry["zh-CN"],
     ...updaterStatus["zh-CN"],
-    ...catalogSync["zh-CN"]
+    ...catalogSync["zh-CN"],
+    ...operations["zh-CN"]
   },
   "zh-TW": {
     ...zhTW,
@@ -53,7 +55,8 @@ const messages: Record<LocaleCode, Messages> = {
     ...factionShuffle["zh-TW"],
     ...infantry["zh-TW"],
     ...updaterStatus["zh-TW"],
-    ...catalogSync["zh-TW"]
+    ...catalogSync["zh-TW"],
+    ...operations["zh-TW"]
   },
   "en-US": {
     ...en,
@@ -63,7 +66,8 @@ const messages: Record<LocaleCode, Messages> = {
     ...factionShuffle["en-US"],
     ...infantry["en-US"],
     ...updaterStatus["en-US"],
-    ...catalogSync["en-US"]
+    ...catalogSync["en-US"],
+    ...operations["en-US"]
   },
   "ja-JP": {
     ...ja,
@@ -73,7 +77,8 @@ const messages: Record<LocaleCode, Messages> = {
     ...factionShuffle["ja-JP"],
     ...infantry["ja-JP"],
     ...updaterStatus["ja-JP"],
-    ...catalogSync["ja-JP"]
+    ...catalogSync["ja-JP"],
+    ...operations["ja-JP"]
   },
   "ko-KR": {
     ...ko,
@@ -83,7 +88,8 @@ const messages: Record<LocaleCode, Messages> = {
     ...factionShuffle["ko-KR"],
     ...infantry["ko-KR"],
     ...updaterStatus["ko-KR"],
-    ...catalogSync["ko-KR"]
+    ...catalogSync["ko-KR"],
+    ...operations["ko-KR"]
   }
 };
 export const languages = [

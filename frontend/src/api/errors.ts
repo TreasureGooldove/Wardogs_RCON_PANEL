@@ -2,6 +2,7 @@ import { t } from "@/i18n";
 import { isAxiosError } from "axios";
 
 export type ApiErrorCode =
+  | "origin_mismatch"
   | "frontend_outdated"
   | "shuffle_two_factions"
   | "shuffle_capacity"
@@ -47,6 +48,8 @@ export interface ApiErrorBody {
 }
 
 const messages: Record<ApiErrorCode, string> = {
+  origin_mismatch:
+    "请求来源与面板部署地址不一致，请检查 PANEL_PUBLIC_ORIGIN 和反向代理配置",
   frontend_outdated:
     "前端页面版本过旧，请强制刷新；若仍未更新，请同时更新前端构建和后端并重建面板",
   shuffle_two_factions:
@@ -104,6 +107,14 @@ export function getApiErrorCode(error: unknown): ApiErrorCode | null {
 
 export function getApiErrorMessage(error: unknown): string {
   const code = getApiErrorCode(error);
+  if (
+    code === "invalid_credentials" &&
+    isAxiosError(error) &&
+    error.config?.url?.startsWith("/api/server/config")
+  )
+    return t(
+      "二次验证密码不正确，请输入当前面板登录密码；不是 RCON 密码。草稿已保留。"
+    );
   if (code) return t(messages[code]);
   if (isAxiosError(error)) {
     if (!error.response) return t("无法连接面板服务，请检查本地网络");

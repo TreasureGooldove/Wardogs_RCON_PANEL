@@ -119,6 +119,12 @@ In Server Settings, enable public HTTP RCON, enter the address and RCON password
 
 ## 5. Verification and upgrades
 
+### Confirmation passwords, drafts and private logs
+
+Rotation confirmation uses the current panel-account password, not the RCON password. A wrong confirmation preserves the session and draft; redirects occur only after session expiry is verified. For origin mismatch, check the browser address, `PANEL_PUBLIC_ORIGIN` and proxy configuration; retain origin validation.
+
+Server Diagnostics now includes Panel logs. Only the owner can read them after confirming the current password for each fetch. The UI hides records on navigation or after 5 minutes. Logs live in the panel data directory's `panel-logs/`, with asynchronous writes and rotation around 50MB. They record request status/timing/IDs, stable error codes, runtime failures, catalog sync, moderation audit summaries and frontend error types. Frontend messages/state, passwords, Bearers, API keys, cookies, query strings, request bodies and raw configuration are excluded. Operational logging starts with this version; existing moderation audits remain accessible. Share only necessary reviewed error codes, timestamps and request IDs.
+
 The installed version comes from the backend and does not prove that the browser loaded the matching frontend. Upgrade both backend and the Release's `frontend/dist`, then rebuild the panel container; source archives require a frontend build first. If new controls are missing, hard-refresh with `Ctrl+F5` and compare the dialog's frontend build version. HTML entry points use no-store; do not override this with long-lived proxy/CDN HTML caching. Content-hashed assets can retain normal caching.
 
 Verify health, page access, login, and read-only queries. Do not test disruptive game commands while players are online. Investigate uncertain writes before any retry.

@@ -11,6 +11,7 @@ import type {
 } from "./types.d";
 import { stringify } from "qs";
 import { useUserStoreHook } from "@/store/modules/user";
+import { createSessionGuard } from "./session";
 
 const defaultConfig: AxiosRequestConfig = {
   timeout: 10000,
@@ -50,6 +51,15 @@ class PureHttp {
   }
 
   private httpInterceptorsResponse(): void {
+    // Use raw Axios for the probe so its 401 cannot recursively enter this interceptor.
+    const checkSession = createSessionGuard(
+      () =>
+        Axios.get("/api/auth/me", { withCredentials: true, timeout: 10000 }),
+      () => {
+        useUserStoreHook().clearSession();
+        window.dispatchEvent(new Event("panel-session-expired"));
+      }
+    );
     PureHttp.axiosInstance.interceptors.response.use(
       (response: PureHttpResponse) => {
         const config = response.config;
@@ -60,15 +70,9 @@ class PureHttp {
         }
         return response.data;
       },
-      (error: PureHttpError) => {
+      async (error: PureHttpError) => {
         error.isCancelRequest = Axios.isCancel(error);
-        if (
-          error.response?.status === 401 &&
-          error.config?.url?.startsWith("/api/server/")
-        ) {
-          useUserStoreHook().clearSession();
-          window.dispatchEvent(new Event("panel-session-expired"));
-        }
+        await checkSession(error);
         return Promise.reject(error);
       }
     );
