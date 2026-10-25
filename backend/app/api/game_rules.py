@@ -1,5 +1,6 @@
 """Read-only rule views and owner-confirmed automation configuration."""
 import json
+from typing import Literal
 from hashlib import sha256
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -15,6 +16,9 @@ router = APIRouter(prefix='/api/game-rules', dependencies=[Depends(require_admin
 
 
 class FactionBody(FactionSettings):
+    # Require the explicit semantics marker from writers, so a stale v1 page
+    # cannot accidentally turn its old "unlimited" zero into a closed faction.
+    limitsVersion: Literal[2]
     targetRevision: str = Field(min_length=1, max_length=128)
     acknowledgeRisk: StrictBool = False
     password: SecretStr | None = None
@@ -48,6 +52,10 @@ async def _save(payload, kind, request):
         origin, actor = _check(request, payload.targetRevision, 'changeFaction' if kind == 'factions' else 'kill')
         if actor.role != 'owner':
             raise PanelError('permission_denied')
+        # A v1 browser can copy limitsVersion from a fresh GET while retaining
+        # its old zero-means-unlimited form. Require a writer-owned marker too.
+        if kind == 'factions' and request.headers.get('X-Wardogs-Faction-Limits-Version') != '2':
+            raise PanelError('invalid_selection')
         if payload.enabled:
             if not payload.acknowledgeRisk or payload.password is None or not request.app.state.settings.history_enabled:
                 raise PanelError('invalid_selection')

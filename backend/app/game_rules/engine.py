@@ -23,20 +23,26 @@ def faction_plan(players, settings):
         if name is None:
             return counts, None, 'unknown_faction'
         counts[name] += 1
-    if len(players) < settings.minimumPlayers:
-        return counts, None, 'below_minimum'
     limits = settings.limits.model_dump()
-    excess = sum(max(0, counts[name] - limits[name]) for name in FACTIONS if limits[name])
-    imbalance = max(counts.values()) - min(counts.values())
+    opened = [name for name in FACTIONS if limits[name] != 0]
+    closed_excess = sum(counts[name] for name in FACTIONS if limits[name] == 0)
+    if len(players) < settings.minimumPlayers and not closed_excess:
+        return counts, None, 'below_minimum'
+    excess = sum(max(0, counts[name] - limits[name]) for name in FACTIONS if limits[name] >= 0)
+    imbalance = max((counts[name] for name in opened), default=0) - min((counts[name] for name in opened), default=0)
     if not excess and (not settings.balanceEnabled or imbalance <= settings.maxDifference):
         return counts, None, 'within_limits'
     def score(values):
-        return (sum(max(0, values[name] - limits[name]) for name in FACTIONS if limits[name]),
-                sum(value * value for value in values.values()) if settings.balanceEnabled else 0)
+        return (sum(max(0, values[name] - limits[name]) for name in FACTIONS if limits[name] >= 0),
+                sum(values[name] * values[name] for name in opened) if settings.balanceEnabled else 0)
     choices = []
     for source in FACTIONS:
+        if closed_excess and limits[source] != 0:
+            continue
+        if excess and (limits[source] < 0 or counts[source] <= limits[source]):
+            continue
         for target in FACTIONS:
-            if source == target or not counts[source] or (limits[target] and counts[target] >= limits[target]):
+            if source == target or not counts[source] or (limits[target] >= 0 and counts[target] >= limits[target]):
                 continue
             if not excess and counts[source] - counts[target] <= settings.maxDifference:
                 continue
@@ -47,7 +53,7 @@ def faction_plan(players, settings):
         return counts, None, 'no_destination'
     best_rank = min((item[0], item[1]) for item in choices)
     best = choice([item for item in choices if (item[0], item[1]) == best_rank])
-    return counts, (best[2], best[3]), 'over_limit' if excess else 'unbalanced'
+    return counts, (best[2], best[3]), 'faction_closed' if closed_excess else 'over_limit' if excess else 'unbalanced'
 
 
 class GameRulesEngine:
@@ -152,7 +158,7 @@ class GameRulesEngine:
             self._violation = None
             return
         names = {faction_name(row.get('name')): row.get('name') for row in status.get('factionScores') or []}
-        if set(names) != set(FACTIONS):
+        if plan[1] not in names:
             self.last_factions['state'] = 'unknown_faction'
             self._violation = None
             return

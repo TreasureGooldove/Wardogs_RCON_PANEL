@@ -23,12 +23,13 @@ class ClosedModel(BaseModel):
 
 
 class FactionLimits(ClosedModel):
-    Lonestar: StrictInt = Field(default=0, ge=0, le=1000)
-    Valkyra: StrictInt = Field(default=0, ge=0, le=1000)
-    Manticore: StrictInt = Field(default=0, ge=0, le=1000)
+    Lonestar: StrictInt = Field(default=-1, ge=-1, le=1000)
+    Valkyra: StrictInt = Field(default=-1, ge=-1, le=1000)
+    Manticore: StrictInt = Field(default=-1, ge=-1, le=1000)
 
 
 class FactionSettings(ClosedModel):
+    limitsVersion: Literal[2] = 2
     enabled: StrictBool = False
     limits: FactionLimits = Field(default_factory=FactionLimits)
     balanceEnabled: StrictBool = True
@@ -36,6 +37,12 @@ class FactionSettings(ClosedModel):
     minimumPlayers: StrictInt = Field(default=0, ge=0, le=1000)
     stableSeconds: StrictInt = Field(default=0, ge=0, le=300)
     cooldownSeconds: StrictInt = Field(default=5, ge=5, le=600)
+
+    @model_validator(mode='after')
+    def open_destination_required(self):
+        if self.enabled and all(value == 0 for value in self.limits.model_dump().values()):
+            raise ValueError('enable at least one faction before enabling control')
+        return self
 
 
 class RestrictedItem(ClosedModel):

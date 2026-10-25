@@ -8,15 +8,18 @@ Sidebar: **Faction and item restrictions**. Both automation features are disable
 
 ## Faction population control
 
-- Separate limits for Lonestar, Valkyra, and Manticore; `0` means unlimited.
-- Optionally enforce a maximum population difference of 1–1000, default 2.
+- Separate limits for Lonestar, Valkyra, and Manticore: `0` closes a faction; `-1` means unlimited. Each faction also has an allow-players switch.
+- **50V50:** Select the closed faction and fill the draft. The other two receive 50 slots each, a maximum difference of 1, and no minimum population gate. This does not automatically enable or save automation; owner-password confirmation is retained.
+- Optionally enforce a maximum population difference of 1–1000, default 2, among open factions only.
 - Configure minimum online players, violation grace period (new rules default to 0 seconds), and transfer interval (new rules default to 5 seconds). Existing saved values are preserved.
 - Evaluate every 5 seconds. Move players from factions exceeding capacity or the allowed population difference into an eligible less populated faction; equal-population destinations are selected randomly. Missing or unassigned factions are not treated as violations.
 - Transfer one player at a time, preferring recently observed arrivals. Players first seen in the same sample are ordered deterministically by SteamID, not actual join time.
-- Reduce capacity excess first, then improve balance. Do not transfer to a full faction. If there is insufficient capacity, report no destination without kicking players.
+- Move players out of closed factions first, then reduce other capacity excess and improve balance. Never transfer into closed or full factions. If all open factions are full, report no destination without kicking players.
 - Unknown factions, missing actionable SteamIDs, unsupported transfer capability, or a disabled owner prevent transfers.
 
-Uses existing observations: while watched, players/status approximately every 1/2 seconds; with players, 2/5 seconds; idle, 30/30 seconds. While faction control is armed, the shared collector obtains fresh players and status every 5 seconds without starting another polling loop. Existing failure and rate-limit backoff still apply. Requires `PANEL_HISTORY_ENABLED=true`. A minimum of 0 imposes no population gate; a minimum of 20 allows enabling beforehand but prevents transfers below 20 players.
+Uses existing observations: while watched, players/status approximately every 1/2 seconds; with players, 2/5 seconds; idle, 30/30 seconds. While faction control is armed, the shared collector obtains fresh players and status every 5 seconds without starting another polling loop. Existing failure and rate-limit backoff still apply. Requires `PANEL_HISTORY_ENABLED=true`. A minimum of 0 imposes no population gate. A minimum of 20 prevents ordinary balancing below 20, but players in closed factions are still moved after the configured grace and cooldown.
+
+Upgrade migration converts legacy unlimited `0` values to `-1` once, preserving positive limits and enabled state. New `0` settings stay closed across restarts. Refresh old browser tabs before saving. API writers must send `limitsVersion: 2` and the `X-Wardogs-Faction-Limits-Version: 2` header to prevent old forms from closing factions accidentally.
 
 This corrects populations after sampling; it cannot prevent a player from joining first or guarantee compliance at every instant. Transfers may affect ongoing combat. Displayed counts are the latest observations.
 

@@ -2,6 +2,7 @@ import { http } from "@/utils/http";
 
 export type FactionName = "Lonestar" | "Valkyra" | "Manticore";
 export interface FactionSettings {
+  limitsVersion: 2;
   enabled: boolean;
   limits: Record<FactionName, number>;
   balanceEnabled: boolean;
@@ -79,6 +80,9 @@ type Confirmation = {
   password?: string;
 };
 export const saveFactionRules = (data: FactionSettings & Confirmation) =>
-  http.request("put", "/api/game-rules/factions", { data });
+  http.request("put", "/api/game-rules/factions", {
+    data,
+    headers: { "X-Wardogs-Faction-Limits-Version": "2" }
+  });
 export const saveItemRules = (data: ItemSettings & Confirmation) =>
   http.request("put", "/api/game-rules/items", { data });

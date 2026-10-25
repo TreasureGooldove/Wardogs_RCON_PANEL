@@ -14,18 +14,35 @@ import {
   saveItemRules,
   type GameRulesView,
   type FactionSettings,
+  type FactionName,
   type ItemSettings,
   type RuleReceipt
 } from "@/api/gameRules";
 import { getApiErrorMessage } from "@/api/errors";
 import { useUserStoreHook } from "@/store/modules/user";
 import { FACTIONS } from "@/utils/factions";
+import { fiftyVsFiftyDraft } from "@/utils/factionControl";
 import FactionEmblem from "@/components/FactionEmblem.vue";
 import { formatDate, locale, t } from "@/i18n";
 
 defineOptions({ name: "GameRules" });
 const data = ref<GameRulesView>();
 const factionForm = ref<FactionSettings>();
+const excludedFaction = ref<FactionName>("Lonestar");
+const lastOpenLimits: Partial<Record<FactionName, number>> = {};
+function setFactionOpen(name: FactionName, open: boolean) {
+  if (!factionForm.value) return;
+  const limits = factionForm.value.limits;
+  if (!open && limits[name] !== 0) lastOpenLimits[name] = limits[name];
+  limits[name] = open ? (lastOpenLimits[name] ?? -1) : 0;
+}
+function applyFiftyVsFifty() {
+  if (factionForm.value)
+    factionForm.value = fiftyVsFiftyDraft(
+      factionForm.value,
+      excludedFaction.value
+    );
+}
 const itemForm = ref<ItemSettings>();
 const selectedItem = ref("");
 const busy = ref(false);
@@ -50,6 +67,7 @@ const states: Record<string, string> = {
   no_samples: "尚无人数采样",
   disabled: "自动控制已关闭",
   within_limits: "人数符合限制",
+  faction_closed: "关闭的阵营存在玩家，等待转移",
   below_minimum: "未达到控制最低人数",
   unknown_faction: "阵营数据不完整，暂停转移",
   no_destination: "没有可容纳玩家的目标阵营",
@@ -105,6 +123,14 @@ async function load(reset = false) {
 async function save(kind: "factions" | "items") {
   await run(async () => {
     if (!data.value || !factionForm.value || !itemForm.value) return;
+    if (
+      kind === "factions" &&
+      factionForm.value.enabled &&
+      Object.values(factionForm.value.limits).every(limit => limit === 0)
+    ) {
+      ElMessage.warning(t("启用控制前请至少开放一个阵营。"));
+      return;
+    }
     const settings = kind === "factions" ? factionForm.value : itemForm.value;
     let password: string | undefined;
     if (settings.enabled) {
@@ -227,10 +253,46 @@ onUnmounted(() => {
             :closable="false"
             :title="
               t(
-                '每 5 秒检查一次。目标阵营人数相同时随机选择；人数上限为 0 表示不限。每次只转移一人，并遵守等待与操作间隔。'
+                '每 5 秒检查一次。0 人表示关闭阵营，-1 表示不限；只在开放阵营之间平衡，目标人数相同时随机选择。每次转移一人，并遵守等待与操作间隔。'
               )
             "
           />
+          <el-card shadow="never" class="my-4">
+            <template #header>{{ t("50V50 双阵营模式") }}</template>
+            <div class="flex flex-wrap items-end gap-3">
+              <el-form label-position="top" :disabled="!owner || busy">
+                <el-form-item :label="t('关闭的阵营')" class="!mb-0">
+                  <el-select v-model="excludedFaction" class="!w-64">
+                    <el-option
+                      v-for="faction in FACTIONS"
+                      :key="faction.name"
+                      :label="faction.name"
+                      :value="faction.name"
+                    />
+                  </el-select>
+                </el-form-item>
+              </el-form>
+              <el-button
+                :disabled="!owner || busy"
+                @click="applyFiftyVsFifty"
+                >{{ t("填入 50V50 草稿") }}</el-button
+              >
+            </div>
+            <p class="mt-3 text-sm text-gray-500">
+              {{
+                t(
+                  "选定阵营上限为 0，其余两个阵营各 50 人，最大人数差为 1。只修改当前草稿，保存并确认启用后生效。"
+                )
+              }}
+            </p>
+            <p class="mt-2 text-sm text-gray-500">
+              {{
+                t(
+                  "由面板定期转移，不会在游戏选阵营界面直接禁选。关闭阵营的玩家不受最低在线人数门槛限制；开放阵营都满员时暂停转移，不踢出玩家。"
+                )
+              }}
+            </p>
+          </el-card>
           <el-alert
             v-if="data.factions.blocked || data.factions.requiresRearm"
             type="warning"
@@ -267,10 +329,17 @@ onUnmounted(() => {
                 }}
               </p>
               <el-form label-position="top" :disabled="!owner || busy">
+                <el-form-item :label="t('允许加入')">
+                  <el-switch
+                    :model-value="factionForm.limits[faction.name] !== 0"
+                    :aria-label="t('允许加入 {p0}', { p0: faction.name })"
+                    @change="setFactionOpen(faction.name, Boolean($event))"
+                  />
+                </el-form-item>
                 <el-form-item :label="t('阵营人数上限')"
                   ><el-input-number
                     v-model="factionForm.limits[faction.name]"
-                    :min="0"
+                    :min="-1"
                     :max="1000"
                 /></el-form-item>
               </el-form>

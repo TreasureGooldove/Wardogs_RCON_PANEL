@@ -1,5 +1,6 @@
 """Offline rule execution and safety boundaries; all RCON actions are mocked."""
 from datetime import UTC, datetime, timedelta
+import json
 from unittest.mock import AsyncMock
 
 import httpx
@@ -9,7 +10,7 @@ from pydantic import ValidationError
 from app.config import PanelSettings, RconTarget
 from app.errors import PanelError
 from app.game_rules.engine import faction_plan
-from app.game_rules.models import FactionSettings, ItemSettings, ItemUsedEvent
+from app.game_rules.models import FactionSettings, ItemSettings, ItemUsedEvent, faction_name
 from app.game_rules.store import GameRulesStore
 from app.history.collector import HistoryCollector
 from app.main import create_app
@@ -86,6 +87,93 @@ def test_faction_capacity_difference_and_no_destination():
     assert plan is None and reason == 'below_minimum'
     unknown = roster() + [{'faction': None, 'steamId': None}]
     assert faction_plan(unknown, FactionSettings())[1:] == (None, 'unknown_faction')
+
+
+@pytest.mark.parametrize('closed', ['Lonestar', 'Valkyra', 'Manticore'])
+def test_fifty_vs_fifty_excludes_closed_faction_from_balance(closed):
+    names = ('Lonestar', 'Valkyra', 'Manticore')
+    limits = {name: 0 if name == closed else 50 for name in names}
+    settings = FactionSettings(enabled=True, limits=limits, maxDifference=1)
+    counts = tuple(0 if name == closed else 50 for name in names)
+    assert faction_plan(roster(counts), settings)[1:] == (None, 'within_limits')
+    counts = tuple(1 if name == closed else 20 for name in names)
+    _, plan, reason = faction_plan(roster(counts), settings)
+    assert plan[0] == closed and plan[1] != closed and reason == 'faction_closed'
+    # No movement into the excluded faction even when the two open teams differ.
+    open_names = [name for name in names if name != closed]
+    counts = tuple(0 if name == closed else 30 if name == open_names[0] else 20 for name in names)
+    assert faction_plan(roster(counts), settings)[1] == tuple(open_names)
+
+
+def test_zero_capacity_minus_one_unlimited_and_closed_priority():
+    assert FactionSettings().limits.model_dump() == dict.fromkeys(('Lonestar', 'Valkyra', 'Manticore'), -1)
+    settings = FactionSettings(limits={'Lonestar': 0, 'Valkyra': -1, 'Manticore': -1}, minimumPlayers=100)
+    assert faction_plan(roster((1, 0, 0)), settings)[1][0] == 'Lonestar'
+    assert faction_plan(roster((0, 50, 50)), settings)[1:] == (None, 'within_limits')
+    full = FactionSettings(limits={'Lonestar': 0, 'Valkyra': 50, 'Manticore': 50})
+    assert faction_plan(roster((1, 50, 50)), full)[1:] == (None, 'no_destination')
+    assert faction_plan(roster((0, 0, 0)), full)[1:] == (None, 'within_limits')
+    one_team = FactionSettings(limits={'Lonestar': 0, 'Valkyra': -1, 'Manticore': 0})
+    assert faction_plan(roster((0, 8, 0)), one_team)[1:] == (None, 'within_limits')
+    with pytest.raises(ValidationError): FactionSettings(enabled=True, limits=dict.fromkeys(('Lonestar','Valkyra','Manticore'), 0))
+    with pytest.raises(ValidationError): FactionSettings(limits={'Lonestar': -2})
+
+
+def test_legacy_unlimited_limits_migrate_once_without_closing_factions(panel):
+    enable(panel, 'factions', limits={'Lonestar': 0, 'Valkyra': 50, 'Manticore': 0})
+    store = panel.state.game_rules_store
+    before = store.config(ORIGIN, 'factions')
+    legacy = json.loads(before['settings'])
+    legacy.pop('limitsVersion', None)
+    with store.db._connect() as db:
+        db.execute("UPDATE game_rule_settings SET settings=? WHERE kind='factions'", (json.dumps(legacy),))
+    recovered = GameRulesStore(store.db)
+    row = recovered.config(ORIGIN, 'factions')
+    settings = json.loads(row['settings'])
+    assert settings['limitsVersion'] == 2
+    assert settings['limits'] == {'Lonestar': -1, 'Valkyra': 50, 'Manticore': -1}
+    assert all(row[key] == before[key] for key in ('enabled_at','actor','revision','generation','blocked'))
+    settings['limits']['Lonestar'] = 0
+    recovered.save(ORIGIN, 'factions', row['revision'], row['actor'], settings)
+    assert GameRulesStore(store.db).view(ORIGIN, 'factions', row['revision'])['settings']['limits']['Lonestar'] == 0
+
+
+@pytest.mark.parametrize('population', [0, 1, 99, 100, 101])
+def test_closed_team_drains_only_to_available_open_capacity(population):
+    settings = FactionSettings(limits={'Lonestar': 0, 'Valkyra': 50, 'Manticore': 50}, maxDifference=1)
+    players = roster((population, 0, 0))
+    for _ in range(population + 1):
+        counts, plan, state = faction_plan(players, settings)
+        assert counts['Valkyra'] <= 50 and counts['Manticore'] <= 50
+        if not plan: break
+        assert plan[1] != 'Lonestar'
+        player = next(player for player in players if faction_name(player['faction']) == plan[0])
+        player['faction'] = plan[1]
+    assert counts['Lonestar'] == max(0, population - 100)
+    assert abs(counts['Valkyra'] - counts['Manticore']) <= 1
+    assert state == ('no_destination' if population > 100 else 'within_limits')
+
+
+@pytest.mark.asyncio
+async def test_fifty_vs_fifty_api_rejects_stale_writer_and_uses_two_team_status(panel):
+    token = panel.state.auth_service.login('owner', PASSWORD, 'test')[1]
+    settings = FactionSettings(enabled=True, limits={'Lonestar': 0, 'Valkyra': 50, 'Manticore': 50}, maxDifference=1)
+    body = {**settings.model_dump(), 'targetRevision': panel.state.rcon_runtime.target_revision,
+            'password': PASSWORD, 'acknowledgeRisk': True}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC,
+                                headers={'Origin': PUBLIC, 'X-Wardogs-Faction-Limits-Version': '2'}, cookies={'panel_session': token}) as client:
+        assert (await client.put('/api/game-rules/factions', json=body, headers={'X-Wardogs-Faction-Limits-Version': ''})).status_code == 400
+        stale = {key: value for key, value in body.items() if key != 'limitsVersion'}
+        assert (await client.put('/api/game-rules/factions', json=stale)).status_code == 400
+        assert (await client.put('/api/game-rules/factions', json={**body, 'limits': dict.fromkeys(('Lonestar','Valkyra','Manticore'), 0)})).status_code == 400
+        assert (await client.put('/api/game-rules/factions', json=body)).status_code == 200
+        view = (await client.get('/api/game-rules')).json()['factions']['settings']
+        assert view['limitsVersion'] == 2 and view['limits'] == settings.limits.model_dump()
+    panel.state.send.assert_not_called()
+    two_team_status = {**STATUS, 'factionScores': [row for row in STATUS['factionScores'] if row['name'] != 'Lonestar']}
+    await panel.state.game_rules_engine.factions_unlocked(roster((1, 2, 2)), two_team_status)
+    panel.state.send.assert_awaited_once()
+    assert panel.state.send.await_args.kwargs['faction'] in ('Valkyra', 'Manticore')
 
 
 @pytest.mark.asyncio
@@ -238,7 +326,7 @@ async def test_missing_live_map_and_stale_wall_time_do_not_authorize_kill(panel)
 @pytest.mark.asyncio
 async def test_rule_api_owner_password_origin_revision_and_read_only(panel):
     token = panel.state.auth_service.login('owner', PASSWORD, 'test')[1]
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC, headers={'Origin': PUBLIC},
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC, headers={'Origin': PUBLIC, 'X-Wardogs-Faction-Limits-Version': '2'},
                                 cookies={'panel_session': token}) as c:
         initial = (await c.get('/api/game-rules')).json()
         assert not initial['factions']['settings']['enabled'] and not initial['items']['settings']['enabled']
@@ -251,7 +339,7 @@ async def test_rule_api_owner_password_origin_revision_and_read_only(panel):
         assert (await c.put('/api/game-rules/factions', json=body, headers={'Origin': 'https://other.example.test'})).status_code == 401
     panel.state.auth_service.create_subuser('viewer', PASSWORD)
     viewer_token = panel.state.auth_service.login('viewer', PASSWORD, 'viewer')[1]
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC, headers={'Origin': PUBLIC},
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC, headers={'Origin': PUBLIC, 'X-Wardogs-Faction-Limits-Version': '2'},
                                 cookies={'panel_session': viewer_token}) as c:
         assert (await c.get('/api/game-rules')).status_code == 200
         assert (await c.put('/api/game-rules/factions', json=body)).status_code == 403
@@ -294,7 +382,7 @@ async def test_real_capability_service_authorizes_rules_without_population_gate(
     body = {**settings.model_dump(), 'targetRevision': runtime.target_revision,
             'password': PASSWORD, 'acknowledgeRisk': True}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=panel), base_url=PUBLIC,
-                                headers={'Origin': PUBLIC}, cookies={'panel_session': token}) as client:
+                                headers={'Origin': PUBLIC, 'X-Wardogs-Faction-Limits-Version': '2'}, cookies={'panel_session': token}) as client:
         result = await client.put('/api/game-rules/' + kind, json=body)
         if not supported:
             assert result.status_code == 501 and result.json()['code'] == 'action_unsupported'

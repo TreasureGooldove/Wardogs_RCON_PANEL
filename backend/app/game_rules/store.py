@@ -31,6 +31,16 @@ class GameRulesStore:
             ''')
             db.execute("UPDATE game_rule_settings SET blocked=1 WHERE EXISTS (SELECT 1 FROM game_rule_receipts r WHERE r.origin=game_rule_settings.origin AND r.kind=game_rule_settings.kind AND r.generation=game_rule_settings.generation AND r.outcome='processing')")
             db.execute("UPDATE game_rule_receipts SET outcome='uncertain',error='operation_interrupted' WHERE outcome='processing'")
+            # Legacy zero meant unlimited. Migrate once before any rule can run;
+            # an explicitly saved v2 zero must remain closed after restarts.
+            for row in db.execute("SELECT origin,settings FROM game_rule_settings WHERE kind='factions'").fetchall():
+                settings = json.loads(row['settings'])
+                if 'limitsVersion' not in settings:
+                    settings['limits'] = {name: -1 if value == 0 else value
+                                          for name, value in settings.get('limits', {}).items()}
+                    settings['limitsVersion'] = 2
+                    db.execute("UPDATE game_rule_settings SET settings=? WHERE origin=? AND kind='factions'",
+                               (json.dumps(settings), row['origin']))
 
     def config(self, origin, kind):
         with self.db._connect() as db:

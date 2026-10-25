@@ -24,6 +24,22 @@ const dictionaries = Object.fromEntries(
 );
 const tokens = text => (text.match(/\{[A-Za-z][A-Za-z0-9_]*\}/g) || []).sort();
 
+test("faction control messages cover every supported language", () => {
+  const messages = JSON.parse(
+    fs.readFileSync(path.join(root, "faction-control.json"), "utf8")
+  );
+  for (const code of core.LOCALE_CODES) {
+    assert.deepEqual(
+      Object.keys(messages[code]).sort(),
+      Object.keys(messages["zh-CN"]).sort()
+    );
+    for (const [key, value] of Object.entries(messages[code])) {
+      assert.ok(value.trim());
+      assert.deepEqual(tokens(value), tokens(key));
+    }
+  }
+});
+
 test("delayed awards messages cover all supported locales", () => {
   const awards = JSON.parse(
     fs.readFileSync(path.join(root, "awards.json"), "utf8")
