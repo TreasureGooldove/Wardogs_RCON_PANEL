@@ -24,7 +24,11 @@ const dictionaries = Object.fromEntries(
 );
 const tokens = text => (text.match(/\{[A-Za-z][A-Za-z0-9_]*\}/g) || []).sort();
 
-for (const file of ["faction-control.json", "faction-shuffle.json"])
+for (const file of [
+  "faction-control.json",
+  "faction-shuffle.json",
+  "infantry.json"
+])
   test(`${file} messages cover every supported language`, () => {
     const messages = JSON.parse(fs.readFileSync(path.join(root, file), "utf8"));
     for (const code of core.LOCALE_CODES) {

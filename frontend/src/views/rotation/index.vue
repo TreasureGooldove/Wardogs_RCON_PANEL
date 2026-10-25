@@ -25,7 +25,10 @@ import {
   moveRotationEntry,
   parseRotationDraft,
   removeRotationEntry,
-  setRotationSetting
+  setRotationSetting,
+  setInfantryOnRotation,
+  hasInfantryOnly,
+  INFANTRY_ONLY
 } from "@/utils/rotationConfig";
 
 defineOptions({ name: "Rotation" });
@@ -40,6 +43,10 @@ const draftText = ref("");
 const validation = ref<ConfigValidation | null>(null);
 const saving = ref(false);
 const validating = ref(false);
+const infantryBusy = ref(false);
+const infantryResult = ref<ReturnType<typeof setInfantryOnRotation> | null>(
+  null
+);
 const maps = ref<CatalogItem[]>([]);
 const lightings = ref<CatalogItem[]>([]);
 const experiences = ref<MapOption[]>([]);
@@ -71,6 +78,23 @@ const mayEdit = computed(
 const editable = computed(
   () => mayEdit.value && config.value?.writable === true && !!draft.value.data
 );
+const canModifyDraft = computed(
+  () =>
+    editable.value &&
+    !loading.value &&
+    !saving.value &&
+    !validating.value &&
+    !infantryBusy.value
+);
+const liveInfantryCount = computed(
+  () =>
+    orderedItems.value.filter(item => hasInfantryOnly(item.experiences)).length
+);
+const draftInfantryCount = computed(
+  () =>
+    draft.value.data?.entries.filter(entry => hasInfantryOnly(entry.experience))
+      .length ?? 0
+);
 
 const availability = computed(() => {
   const value = capabilities.value?.features.rotation;
@@ -98,7 +122,8 @@ function displayExperiences(value: string[] | null) {
 }
 
 async function refresh() {
-  if (loading.value) return;
+  if (loading.value || saving.value || validating.value || infantryBusy.value)
+    return;
   loading.value = true;
   error.value = "";
   try {
@@ -123,6 +148,7 @@ async function refresh() {
       config.value = await getConfigDocument(true);
       draftText.value = config.value.text;
       validation.value = null;
+      infantryResult.value = null;
     } catch (reason) {
       config.value = null;
       error.value = getApiErrorMessage(reason);
@@ -158,14 +184,66 @@ async function selectMap(map: string) {
 }
 
 function stage(change: (text: string) => string) {
-  if (!editable.value) return;
+  if (!canModifyDraft.value) return;
   try {
     draftText.value = change(draftText.value);
     validation.value = null;
+    infantryResult.value = null;
   } catch (reason) {
     ElMessage.warning(
       reason instanceof Error ? t(reason.message) : t("修改轮换草稿失败")
     );
+  }
+}
+
+async function stageInfantry(enabled: boolean) {
+  const current = config.value;
+  if (!current || !canModifyDraft.value || !draft.value.data?.entries.length)
+    return;
+  const text = draftText.value;
+  const entries = draft.value.data.entries;
+  const offered = new Set<string>();
+  infantryBusy.value = true;
+  error.value = "";
+  infantryResult.value = null;
+  try {
+    if (enabled) {
+      const uniqueMaps = [...new Set(entries.map(entry => entry.map))];
+      // Bound concurrent reads; stale or failed catalogs never authorize adding a modifier.
+      for (let offset = 0; offset < uniqueMaps.length; offset += 4) {
+        const group = uniqueMaps.slice(offset, offset + 4);
+        const results = await Promise.allSettled(
+          group.map(map => getMapExperiences(map))
+        );
+        results.forEach((result, index) => {
+          if (result.status !== "fulfilled") return;
+          if (result.value.targetRevision !== current.targetRevision)
+            throw new Error(
+              t("服务器或草稿已变化，请重新读取后再生成纯步兵草稿。")
+            );
+          if (
+            !result.value.stale &&
+            result.value.items.some(
+              item => item.id.toLowerCase() === INFANTRY_ONLY.toLowerCase()
+            )
+          )
+            offered.add(group[index]);
+        });
+      }
+    }
+    if (config.value !== current || draftText.value !== text || !editable.value)
+      throw new Error(t("服务器或草稿已变化，请重新读取后再生成纯步兵草稿。"));
+    const result = setInfantryOnRotation(text, enabled, map =>
+      offered.has(map)
+    );
+    draftText.value = result.text;
+    validation.value = null;
+    infantryResult.value = result;
+  } catch (reason) {
+    error.value =
+      reason instanceof Error ? t(reason.message) : getApiErrorMessage(reason);
+  } finally {
+    infantryBusy.value = false;
   }
 }
 
@@ -182,7 +260,14 @@ function addEntry() {
 }
 
 async function validateDraft() {
-  if (!config.value || validating.value) return;
+  if (
+    !config.value ||
+    validating.value ||
+    infantryBusy.value ||
+    saving.value ||
+    loading.value
+  )
+    return;
   validating.value = true;
   error.value = "";
   try {
@@ -200,7 +285,9 @@ async function validateDraft() {
 
 async function saveDraft() {
   const current = config.value;
-  if (!current || !editable.value || !dirty.value || saving.value) return;
+  if (!current || !canModifyDraft.value || !dirty.value) return;
+  const text = draftText.value;
+  saving.value = true;
   try {
     await ElMessageBox.confirm(
       t(
@@ -214,13 +301,13 @@ async function saveDraft() {
       }
     );
   } catch {
+    saving.value = false;
     return;
   }
-  saving.value = true;
   error.value = "";
   try {
     const checked = await validateConfigDocument(
-      draftText.value,
+      text,
       current.targetRevision,
       true
     );
@@ -249,7 +336,7 @@ async function saveDraft() {
     }
     const result = await saveConfigDocument(
       {
-        text: draftText.value,
+        text,
         revision: current.revision,
         targetRevision: current.targetRevision,
         password
@@ -265,6 +352,7 @@ async function saveDraft() {
     ElMessage.success(t("服务器已接受地图轮换配置"));
     config.value = null;
     draftText.value = "";
+    saving.value = false;
     await refresh();
   } catch (reason) {
     error.value = getApiErrorMessage(reason);
@@ -369,6 +457,84 @@ onMounted(refresh);
       </div>
     </el-card>
 
+    <el-card v-if="rotation || config" shadow="never">
+      <template #header>{{ $t("官方纯步兵模式") }}</template>
+      <div class="space-y-3">
+        <p class="text-sm text-gray-500">
+          {{
+            $t(
+              "使用游戏原生 Infantry Only 规则。只调整轮换条目的体验组合，应用后从下次切图生效，当前对局保持原样。"
+            )
+          }}
+        </p>
+        <div class="flex flex-wrap items-center gap-2">
+          <el-tag v-if="rotation">{{
+            $t("实机轮换纯步兵：{p0} / {p1} 条", {
+              p0: liveInfantryCount,
+              p1: orderedItems.length
+            })
+          }}</el-tag>
+          <el-tag
+            v-if="rotation?.items.some(item => item.experiences === null)"
+            type="warning"
+            >{{ $t("部分轮换条目的模式未知") }}</el-tag
+          >
+          <el-tag v-if="draft.data" :type="dirty ? 'warning' : 'info'">{{
+            $t("草稿纯步兵：{p0} / {p1} 条", {
+              p0: draftInfantryCount,
+              p1: draft.data.entries.length
+            })
+          }}</el-tag>
+        </div>
+        <template v-if="mayEdit">
+          <div class="flex flex-wrap gap-2">
+            <el-button
+              type="primary"
+              plain
+              :loading="infantryBusy"
+              :disabled="!canModifyDraft || !draft.data?.entries.length"
+              @click="stageInfantry(true)"
+              >{{ $t("全部轮换添加纯步兵") }}</el-button
+            >
+            <el-button
+              :disabled="!canModifyDraft || !draftInfantryCount"
+              @click="stageInfantry(false)"
+              >{{ $t("全部轮换移除纯步兵") }}</el-button
+            >
+          </div>
+          <p class="text-sm text-gray-500">
+            {{
+              $t(
+                "以上按钮只修改草稿。添加前逐图读取实机支持项；不支持、读取失败或缺少基础玩法的条目会跳过。检查草稿后，点击“应用轮换到服务器”并输入密码确认。"
+              )
+            }}
+          </p>
+          <el-alert
+            v-if="infantryResult"
+            :closable="false"
+            :type="infantryResult.skipped ? 'warning' : 'success'"
+            :title="
+              $t('纯步兵草稿：修改 {p0} 条，保持 {p1} 条，跳过 {p2} 条。', {
+                p0: infantryResult.changed,
+                p1: infantryResult.unchanged,
+                p2: infantryResult.skipped
+              })
+            "
+          />
+          <p
+            v-if="infantryResult?.skippedMaps.length"
+            class="text-sm text-gray-500"
+          >
+            {{
+              $t("未处理地图：{p0}", {
+                p0: infantryResult.skippedMaps.join("、")
+              })
+            }}
+          </p>
+        </template>
+      </div>
+    </el-card>
+
     <el-card v-if="mayEdit" shadow="never">
       <template #header>
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -397,7 +563,7 @@ onMounted(refresh);
           <span class="text-sm">{{ $t("轮换状态") }}</span>
           <el-button
             size="small"
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
             @click="
               stage(text =>
                 setRotationSetting(
@@ -413,14 +579,14 @@ onMounted(refresh);
           <el-button
             size="small"
             :type="draft.data.mode === 'ordered' ? 'primary' : 'default'"
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
             @click="stage(text => setRotationSetting(text, 'mode', 'ordered'))"
             >{{ $t("顺序") }}</el-button
           >
           <el-button
             size="small"
             :type="draft.data.mode === 'random' ? 'primary' : 'default'"
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
             @click="stage(text => setRotationSetting(text, 'mode', 'random'))"
             >{{ $t("随机") }}</el-button
           >
@@ -432,7 +598,7 @@ onMounted(refresh);
             filterable
             clearable
             :placeholder="$t('地图')"
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
             @change="selectMap"
           >
             <el-option
@@ -449,7 +615,7 @@ onMounted(refresh);
             filterable
             clearable
             :placeholder="$t('模式／修饰符')"
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
           >
             <el-option
               v-for="item in experiences"
@@ -463,7 +629,7 @@ onMounted(refresh);
             filterable
             clearable
             :placeholder="$t('光照')"
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
           >
             <el-option
               v-for="item in lightings"
@@ -477,7 +643,7 @@ onMounted(refresh);
             filterable
             clearable
             :placeholder="$t('控制区')"
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
           >
             <el-option
               v-for="item in alternators"
@@ -489,7 +655,7 @@ onMounted(refresh);
           <el-button
             type="primary"
             plain
-            :disabled="!editable"
+            :disabled="!canModifyDraft"
             @click="addEntry"
             >{{ $t("加入草稿") }}</el-button
           >
@@ -527,7 +693,7 @@ onMounted(refresh);
               <el-button
                 text
                 size="small"
-                :disabled="!editable || scope.$index === 0"
+                :disabled="!canModifyDraft || scope.$index === 0"
                 @click="
                   stage(text =>
                     moveRotationEntry(text, scope.$index, scope.$index - 1)
@@ -539,7 +705,7 @@ onMounted(refresh);
                 text
                 size="small"
                 :disabled="
-                  !editable ||
+                  !canModifyDraft ||
                   scope.$index >= (draft.data?.entries.length ?? 0) - 1
                 "
                 @click="
@@ -553,7 +719,7 @@ onMounted(refresh);
                 text
                 size="small"
                 type="danger"
-                :disabled="!editable"
+                :disabled="!canModifyDraft"
                 @click="stage(text => removeRotationEntry(text, scope.$index))"
                 >{{ $t("移除") }}</el-button
               >
@@ -565,15 +731,18 @@ onMounted(refresh);
           <div class="flex gap-2">
             <el-button
               :loading="validating"
-              :disabled="!config"
+              :disabled="!config || infantryBusy || loading || saving"
               @click="validateDraft"
               >{{ $t("验证草稿") }}</el-button
             >
             <el-button
-              :disabled="!dirty"
+              :disabled="
+                !dirty || infantryBusy || loading || saving || validating
+              "
               @click="
                 draftText = config.text;
                 validation = null;
+                infantryResult = null;
               "
               >{{ $t("撤销草稿") }}</el-button
             >
@@ -585,7 +754,7 @@ onMounted(refresh);
             <el-button
               type="primary"
               :loading="saving"
-              :disabled="!editable || !dirty"
+              :disabled="!canModifyDraft || !dirty"
               @click="saveDraft"
             >
               {{ $t("应用轮换到服务器") }}

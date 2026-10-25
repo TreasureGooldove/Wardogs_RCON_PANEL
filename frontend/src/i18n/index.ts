@@ -6,6 +6,7 @@ import gameRules from "./game-rules.json";
 import awards from "./awards.json";
 import factionControl from "./faction-control.json";
 import factionShuffle from "./faction-shuffle.json";
+import infantry from "./infantry.json";
 import en from "./en-US.json";
 import ja from "./ja-JP.json";
 import ko from "./ko-KR.json";
@@ -36,7 +37,8 @@ const messages: Record<LocaleCode, Messages> = {
     ...zh,
     ...awards["zh-CN"],
     ...factionControl["zh-CN"],
-    ...factionShuffle["zh-CN"]
+    ...factionShuffle["zh-CN"],
+    ...infantry["zh-CN"]
   },
   "zh-TW": {
     ...zhTW,
@@ -44,28 +46,32 @@ const messages: Record<LocaleCode, Messages> = {
     ...gameRules["zh-TW"],
     ...awards["zh-TW"],
     ...factionControl["zh-TW"],
-    ...factionShuffle["zh-TW"]
+    ...factionShuffle["zh-TW"],
+    ...infantry["zh-TW"]
   },
   "en-US": {
     ...en,
     ...gameRules["en-US"],
     ...awards["en-US"],
     ...factionControl["en-US"],
-    ...factionShuffle["en-US"]
+    ...factionShuffle["en-US"],
+    ...infantry["en-US"]
   },
   "ja-JP": {
     ...ja,
     ...gameRules["ja-JP"],
     ...awards["ja-JP"],
     ...factionControl["ja-JP"],
-    ...factionShuffle["ja-JP"]
+    ...factionShuffle["ja-JP"],
+    ...infantry["ja-JP"]
   },
   "ko-KR": {
     ...ko,
     ...gameRules["ko-KR"],
     ...awards["ko-KR"],
     ...factionControl["ko-KR"],
-    ...factionShuffle["ko-KR"]
+    ...factionShuffle["ko-KR"],
+    ...infantry["ko-KR"]
   }
 };
 export const languages = [

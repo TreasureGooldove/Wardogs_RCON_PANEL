@@ -473,3 +473,27 @@ def test_history_player_returns_revision_for_confirmed_moderation(tmp_path):
         assert result.json()['targetRevision'] == app.state.rcon_runtime.target_revision
         assert result.json()['steamId'] == STEAM_A
         assert all(call.method == 'GET' for call in calls)
+
+
+@pytest.mark.parametrize('enabled', [True, False])
+def test_native_infantry_uses_password_revision_and_rotation_scope(tmp_path, enabled):
+    app, state, calls = make_panel(tmp_path)
+    before = 'Bakurani_KOTH_02' if enabled else 'Bakurani_KOTH_02+KOTH_InfantryOnly'
+    after = 'Bakurani_KOTH_02+KOTH_InfantryOnly' if enabled else 'Bakurani_KOTH_02'
+    state['text'] += ('[/Script/WDGame.WDServerMapRotationSettings]\r\nbEnabled=true\r\n'
+        f'.RotationEntries=(Map="Kavkazi",Experiences="{before}",Lighting="DayLateRain")\r\n')
+    original = state['text']
+    with TestClient(app, base_url=PANEL) as client:
+        login(client)
+        document = client.get('/api/server/config/rotation').json()
+        text = document['text'].replace(f'Experiences="{before}"', f'Experiences="{after}"')
+        body = {'text': text, 'revision': document['revision'], 'targetRevision': document['targetRevision'],
+                'password': 'correct horse battery staple'}
+        headers = {'Origin': PANEL}
+        assert client.put('/api/server/config/rotation',json={**body,'password':'incorrect'},headers=headers).status_code == 401
+        assert client.put('/api/server/config/rotation',json={**body,'revision':'stale'},headers=headers).status_code == 409
+        assert client.put('/api/server/config/rotation',json={**body,'text':text.replace('UnknownKey=do-not-drop','UnknownKey=changed')},headers=headers).status_code == 400
+        assert not put_calls(calls)
+        assert client.put('/api/server/config/rotation',json=body,headers=headers).status_code == 200
+        assert len(put_calls(calls)) == 1
+        assert state['text'] == original.replace(f'Experiences="{before}"',f'Experiences="{after}"')

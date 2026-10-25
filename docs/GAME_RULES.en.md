@@ -103,6 +103,21 @@ Owner-cookie routes, excluded from the bot gateway:
 
 Errors: `400 shuffle_two_factions`, `409 shuffle_capacity`, `409 shuffle_stale`, `409 shuffle_busy`, plus existing password, permission, origin, stop-latch and capability errors. Validate in a controlled environment, not by transferring live players as a connectivity test.
 
+## Native infantry-only mode (AI translated)
+
+Open **Map rotation → Native infantry-only mode**. Separate counters show live rotation and draft entries containing `KOTH_InfantryOnly`; draft changes are not evidence of an active game rule.
+
+1. Add infantry-only to the rotation. Each map is checked against the current server catalog, with at most four concurrent reads. Only explicitly supported maps receive the modifier after their existing base mode.
+2. Review changed, unchanged and skipped counts and maps. Unsupported, failed/stale catalog reads and missing base modes are skipped. No default modes, lighting or zones are generated.
+3. Review and apply the rotation using the existing validation, configuration revision check and password confirmation. Staging alone sends no game write.
+4. The game rebuilds its rotation for the next normal map change. No match end or game restart is sent. If the new order is not adopted, verify the live response first; the panel does not restart the server automatically.
+
+Remove infantry-only affects that modifier alone, preserving base modes, other modifiers, duplicate entries, order, lighting, zones, other fields, comments and line endings. Entries with no remaining base mode are skipped; ambiguous or malformed source is rejected. Rotation enabled state stays unchanged. New entries can also select the base mode and modifier individually.
+
+Example: `Bakurani_KOTH_02+KOTH_InfantryOnly`. Use the current server's real base mode and existing rotation; do not overwrite the whole document with the example. Actual weapon and vehicle restrictions are implemented by the game version.
+
+Viewers see live counters. Editing uses the existing Config permission and rotation-scoped `/api/server/config/rotation` route, with password confirmation for both adding and removing. No automatic punishment, kill or arbitrary command is added.
+
 ## Catalog sources
 
 Names and categories reference the [WARDOGS community helper database](https://wardogs.t0ki.cn/weapons.html), which credits [wardogs.zone](https://wardogs.zone/database). The snapshot contains 38 weapons and 137 equipment items, retaining only identifiers, names, and categories, not website images, code, prices, or damage data. The data file identifies 2026-09-04 as its update date; retrieval was 2026-10-05. Page and data dates may differ, and upstream content may change. These IDs serve selection and the extension contract; they are not guaranteed to match native RCON fields.
