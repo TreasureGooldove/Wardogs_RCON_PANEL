@@ -10,7 +10,7 @@
 
 > 💬 **社区群**：WarDogs战狗 超级猫猫服务器社区群 · QQ 群号 **1108826972**。欢迎玩家和服务器管理员交流。
 
-> 赞助我 https://afdian.com/a/gooldove 
+赞助我 https://afdian.com/a/gooldove 
 
 > 当前版本管理一台服务器。它调用 Wardogs HTTP RCON `/v1` 路由，不提供任意控制台命令执行入口。
 
